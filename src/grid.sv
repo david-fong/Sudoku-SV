@@ -32,7 +32,10 @@ module grid #()
     wire [`GRID_LEN-1:0] rowbiases [`GRID_LEN];
 
     // occupancy signals:
-    wire [`GRID_LEN-1:0] values [`GRID_LEN][`GRID_LEN];
+    // [values] is in row-major order.
+    wire [`GRID_LEN-1:0] rowmajorvalues [`GRID_LEN][`GRID_LEN];
+    wire [`GRID_LEN-1:0] colmajorvalues [`GRID_LEN][`GRID_LEN];
+    wire [`GRID_LEN-1:0] blkmajorvalues [`GRID_LEN][`GRID_LEN];
     wire [`GRID_LEN-1:0] rowoccmasks [`GRID_LEN];
     wire [`GRID_LEN-1:0] coloccmasks [`GRID_LEN];
     wire [`GRID_LEN-1:0] blkoccmasks [`GRID_LEN];
@@ -55,10 +58,10 @@ module grid #()
 
     // generate [tile] modules:
     generate
-        for (integer r = 0; r < `GRID_LEN; r++) begin : rowloop
-        for (integer c = 0; c < `GRID_LEN; c++) begin : colloop
-            integer i = (r * `GRID_LEN) + c;
-            integer b = blockof(r,c);
+        genvar r, c, i;
+        for (r = 0; r < `GRID_LEN; r++) begin : rowloop
+        for (c = 0; c < `GRID_LEN; c++) begin : colloop
+            i = (r * `GRID_LEN) + c;
             tile #() TILEx(
                 .clock,
                 .reset,
@@ -71,9 +74,9 @@ module grid #()
                 .occupiedmask({
                     rowoccmasks[r]|
                     coloccmasks[c]|
-                    blkoccmasks[b]
+                    blkoccmasks[blockof(r,c)]
                 }),
-                .value(values[r][c]),
+                .value(rowmajorvalues[r][c]),
             );
         end : colloop
         end : rowloop
@@ -81,11 +84,22 @@ module grid #()
 
     // generate [OR] modules for [tile.occupiedmask] inputs:
     generate
-        for (integer r = 0; r < `GRID_LEN; r++) begin : rowloop
-        for (integer c = 0; c < `GRID_LEN; c++) begin : colloop
-            integer b = blockof(r,c);
-        end
-        end : rowloop
+        genvar out;
+        for (out = 0; out < `GRID_LEN; out++) begin : outloop
+            assign rowoccmasks[out] = |rowmajorvalues[out];
+            assign coloccmasks[out] = |colmajorvalues[out];
+            assign blkoccmasks[out] = |blkmajorvalues[out];
+        end : outloop
+    endgenerate
+
+    // TODO: loop to map rowmajorvalues to colmajorvalues:
+    generate
+        ;
+    endgenerate
+
+    // TODO: loop to map rowmajorvalues to blkmajorvalues:
+    generate
+        ;
     endgenerate
 
 
