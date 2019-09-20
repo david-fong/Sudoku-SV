@@ -20,7 +20,7 @@ typedef enum logic [2:0] {
  *
  */
 module tile #()
-( // I/O SIGNALS LIST BEGIN:
+(
     input clock,
     input reset,
     input myturn,
@@ -32,7 +32,7 @@ module tile #()
     input       [`GRID_LEN-1:0] rowbias,        // 1hot. value to try. request using index.
     input       [`GRID_LEN-1:0] occupiedmask,   // 1hot. mask of external values to avoid.
     output reg  [`GRID_LEN-1:0] value,          // 1hot. this tile's current value.
-); // I/O SIGNALS LIST END.
+);
 
     tile_fsm_state s_curr;
     tile_fsm_state s_next;

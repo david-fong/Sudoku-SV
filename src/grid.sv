@@ -45,7 +45,8 @@ module grid #()
 
     // generate [rowbias] modules:
     generate
-        for (integer r = 0; r < `GRID_LEN; r++) begin : rowloop
+        genvar r;
+        for (r = 0; r < `GRID_LEN; r++) begin : rowloop
             rowbias #() ROWBIASx(
                 .clock,
                 .reset,
@@ -92,14 +93,34 @@ module grid #()
         end : outloop
     endgenerate
 
-    // TODO: loop to map rowmajorvalues to colmajorvalues:
+    // loop to map [rowmajorvalues] to [colmajorvalues]:
+    // r and c are in terms of row-major-order. nothing convoluted.
     generate
-        ;
+        genvar r, c;
+        for (r = 0; r < `GRID_LEN; r++) begin : rowloop
+        for (c = 0; c < `GRID_LEN; c++) begin : colloop
+            assign colmajorvalues[c][r] = rowMajorvalues[r][c];
+        end : colloop
+        end : rowloop
     endgenerate
 
-    // TODO: loop to map rowmajorvalues to blkmajorvalues:
+    // loop to map [rowmajorvalues] to [blkmajorvalues]:
     generate
-        ;
+        genvar r, c, b, i;
+        for (r = 0; r < `GRID_LEN; r++) begin : rowloop
+        for (c = 0; c < `GRID_LEN; c++) begin : colloop
+            // some test ideas:
+            // 0,0->0,0
+            // 0,3->1,0
+            // 0,6->2,0
+            // 1,0->0,3
+            // 1,3->1,3
+            // 1,6->2,3
+            b = ((r / `GRID_ORD) * `GRID_ORD) + (c / `GRID_ORD);
+            i = ((r % `GRID_ORD) * `GRID_ORD) + (c % `GRID_ORD);
+            assign blkmajorvalues[b][i] = rowMajorvalues[r][c];
+        end : colloop
+        end : rowloop 
     endgenerate
 
 
