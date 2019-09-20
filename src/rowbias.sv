@@ -15,21 +15,20 @@ module rowbias #(parameter w=`GRID_LEN;)
     input clock,
     input reset,
     input update,
-    input [w-1:0] rqindex,
+    input [w:0] rqindex,
     output reg [w-1:0] busvalue
 );
-    reg [w-1:0] shufflepool [w-1:0];
+    initial begin
+        // TODO: initialize shufflepool.
+        //  ideally this wouldn't just be static, but done every reset.
+    end
+
+    reg [w-1:0] shufflepool [w:0];
 
     reg [w-1:0] __busvalue;
     always_ff @(posedge clock) begin
-        if (reset) begin
-            busvalue <= {w{1'b0}};
-        end
-        else if (update) begin
+        if (update) begin
             busvalue <= __busvalue;
-        end
-        else begin
-            busvalue <= busvalue;
         end
     end
     // TODO: assign __busvalue using rqindex into shufflepool.

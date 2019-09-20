@@ -1,3 +1,19 @@
 
+*.swp
 
-
+# simulation and synthesis tool files:
+transcript
+*.mti
+*.mpf
+*.wlf
+*.qdb
+*.qpg
+*.qtl
+*.qpf
+*.sof
+*.bak
+work/
+db/
+incremental_db/
+simulation/
+output_files/

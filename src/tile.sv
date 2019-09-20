@@ -98,5 +98,11 @@ module tile #()
     end
 
 
+
+    // output assignments:
+    assign passbak = (s_curr == `TILE_S_PASSBAK);
+    assign passfwd = (s_curr == `TILE_S_PASSFWD);
+
+
 endmodule : tile
 
