@@ -2,13 +2,14 @@
 `include "def_griddimensions.sv"
 
 /**
- * a bus whose value is sent to all tiles that are in a row together.
- * values can be requested from an internal pool via index into that pool.
- * the internal pool contains one of each 1-hot number of width `GRID_LEN.
- * the values are in a random order, also indexed in 1-hot format.
- * lower indices are favoured if the requesting index is not in 1-hot format,
- *   but users of this module should not rely on this behaviour.
- * a requesting index of zero indicates a request for a bus-signal of all zeros.
+ * a bus whose value is intended to be broadcasted to all tiles in a common row.
+ * values are requested from an internal pool via index into that pool.
+ * the requested value will appear on a rising clock edge if [update] is asserted.
+ *
+ * the internal pool contains one of each 1hot number of width `GRID_LEN+1 in random
+ *     order, except the special value of all zeros, which is always addressable
+ *     via the most significant bit.
+ * outputs are undefined if inputs attempt to index using a non-1hot value.
  */
 module rowbias #(parameter w=`GRID_LEN;)
 (
@@ -23,17 +24,36 @@ module rowbias #(parameter w=`GRID_LEN;)
         //  ideally this wouldn't just be static, but done every reset.
     end
 
-    reg [w-1:0] shufflepool [w:0];
+    reg [w-1:0] shufflepool [w+1];
 
-    reg [w-1:0] __busvalue;
+    wire [w-1:0] __busvalue;
     always_ff @(posedge clock) begin
         if (update) begin
             busvalue <= __busvalue;
         end
     end
-    // TODO: assign __busvalue using rqindex into shufflepool.
-    //  make sure to follow spec. (resolve non-1-hot, and
-    //  return value for rqindex == 0).
+    wire [w-1:0] filteredshufflepool [w+1];
+    generate
+        genvar i;
+        for (i = 0; i < w+1; i++) begin : poolentryloop
+            assign filteredshufflepool[i] = {w{rqindex[i]}};
+        end : poolentryloop
+    endgenerate
+    assign __busvalue = |filteredshufflepool;
 
 endmodule : rowbias
+
+
+
+// arbiter. filters for least significant on-bit.
+// currently not used since spec for rowbias does not permit non-1hot indexing.
+module arbiter #(parameter w;)
+(
+    input [w-1:0] in,
+    output [w-1:0] out
+);
+    wire [w-1:0] scratch;
+    assign scratch = in | {scratch[w-2:0],1'b0};
+    assign out = in & ~scratch;
+endmodule : arbiter
 
