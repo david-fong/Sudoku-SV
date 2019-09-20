@@ -2,14 +2,18 @@
 `include "def_griddimensions.sv"
 
 /**
- * a bus whose value is intended to be broadcasted to all tiles in a common row.
- * values are requested from an internal pool via index into that pool.
- * the requested value will appear on a rising clock edge if [update] is asserted.
+ * a bus whose value is intended to be broadcasted to all tiles in a
+ *     common row. values are requested from an internal pool via
+ *     index into that pool. the requested value will appear on a
+ *     rising clock edge if [update] is asserted.
  *
- * the internal pool contains one of each 1hot number of width `GRID_LEN+1 in random
- *     order, except the special value of all zeros, which is always addressable
- *     via the most significant bit.
- * outputs are undefined if inputs attempt to index using a non-1hot value.
+ * the internal pool contains one of each 1hot number of width
+ *     `GRID_LEN+1 in random order, except the special value of all
+ *     zeros, which is always addressable via the most significant
+ *     bit.
+ *
+ * outputs are undefined if inputs attempt to index using a non-1hot
+ *     value.
  */
 module rowbias #(parameter w=`GRID_LEN;)
 (
@@ -19,9 +23,10 @@ module rowbias #(parameter w=`GRID_LEN;)
     input [w:0] rqindex,
     output reg [w-1:0] busvalue
 );
+    // initialize shufflepool:
     initial begin
-        // TODO: initialize shufflepool.
-        //  ideally this wouldn't just be static, but done every reset.
+        // TODO: 
+        //  ideally this would be done upon each reset.
     end
 
     reg [w-1:0] shufflepool [w+1];
@@ -34,8 +39,7 @@ module rowbias #(parameter w=`GRID_LEN;)
     end
     wire [w-1:0] filteredshufflepool [w+1];
     generate
-        genvar i;
-        for (i = 0; i < w+1; i++) begin : poolentryloop
+        for (genvar i = 0; i < w+1; i++) begin : poolentryloop
             assign filteredshufflepool[i] = {w{rqindex[i]}};
         end : poolentryloop
     endgenerate
