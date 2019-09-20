@@ -2,13 +2,14 @@
 `include "def_griddimensions.sv"
 
 typedef enum logic [2:0] {
-    INITIAL, // nothing happens here
-    INCRIDX, // upward barrel shift of rowbias index
-    RQROWBS, // request row-bias with new index
-    LDROWBS, // catch and hold the value of rowbias' reply
-    PASSBAK, // nothing works- signal a backtrack request
-    PASSFWD  // something worked- signal to continue brute-force alg
+    INITIAL, // nothing happens here. waits until [myturn].
+    INCRIDX, // upward barrel shift of rowbias index.
+    RQROWBS, // request row-bias with new index.
+    LDROWBS, // catch and hold the value of rowbias' reply.
+    PASSBAK, // nothing works- signal a backtrack request.
+    PASSFWD  // something worked- signal to continue brute-force alg.
 } tile_fsm_state;
+
 
 
 /**
@@ -19,28 +20,24 @@ typedef enum logic [2:0] {
  *
  */
 module tile #()
-
 ( // I/O SIGNALS LIST BEGIN:
-
     input clock,
     input reset,
     input myturn,
-
     output passbak, // nothing worked. backtrack and try something different.
     output passfwd, // found something that worked. forge ahead.
 
-    output reg    [`GRID_LEN:0] rqindex,        // 1-hot. request certain entry of rowbias.
-    output                      updaterowbias   //  bool. make rowbias update using rqindex.
-    input       [`GRID_LEN-1:0] rowbias,        // 1-hot. value to try. request using index.
-    input       [`GRID_LEN-1:0] occupiedmask,   // 1-hot. mask of external values to avoid.
-    output reg  [`GRID_LEN-1:0] value,          // 1-hot. this tile's current value.
-
+    output reg  [`GRID_LEN  :0] rqindex,        // 1hot. request certain entry of rowbias.
+    output                      updaterowbias   // bool. make rowbias update using rqindex.
+    input       [`GRID_LEN-1:0] rowbias,        // 1hot. value to try. request using index.
+    input       [`GRID_LEN-1:0] occupiedmask,   // 1hot. mask of external values to avoid.
+    output reg  [`GRID_LEN-1:0] value,          // 1hot. this tile's current value.
 ); // I/O SIGNALS LIST END.
 
     tile_fsm_state s_curr;
     tile_fsm_state s_next;
 
-    // always-block for rqindex:
+    // always-block for [rqindex]:
     always_ff @(posedge clock) begin
         if (reset) begin
             // set 1-hot with most significant bit on:
@@ -52,7 +49,7 @@ module tile #()
         end
     end
 
-    // always-block for value:
+    // always-block for [value]:
     always_ff @(posedge clock) begin
         if (reset) begin
             // set to all zeros:
@@ -68,6 +65,7 @@ module tile #()
 
 
     // STATE MACHINE:
+    // always-block for [s_next]. veto-able by [reset].
     always_comb begin case (s_curr)
         INITIAL: s_next = myturn ? INCRIDX : INITIAL;
         INCRIDX: s_next = RQROWBS;
@@ -91,7 +89,7 @@ module tile #()
         PASSFWD: s_next = INITIAL;
     endcase; end
 
-    // always-block to update current state:
+    // always-block to update [s_curr]:
     always_ff @(posedge clock) begin
         if (reset) begin
             s_curr <= INITIAL;
@@ -106,6 +104,7 @@ module tile #()
     // output assignments:
     assign passbak = (s_curr == PASSBAK);
     assign passfwd = (s_curr == PASSFWD);
+    assign updaterowbias = (s_curr == RQROWBIAS);
 
 
 endmodule : tile
