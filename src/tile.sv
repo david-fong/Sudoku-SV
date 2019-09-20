@@ -1,15 +1,14 @@
 
 `include "def_griddimensions.sv"
 
-// state definitions:
-`define TILE_S_STATEWIDTH 4
-`define TILE_S_INITIAL 4'd0 // nothing happens here
-`define TILE_S_INCRIDX 4'd1 // upward barrel shift of rowbias index
-`define TILE_S_RQROWBS 4'd2 // request row-bias with new index
-`define TILE_S_LDROWBS 4'd3 // catch and hold the value of rowbias' reply
-`define TILE_S_PASSBAK 4'd4 // nothing works- signal a backtrack request
-`define TILE_S_PASSFWD 4'd5 // something worked- signal to continue brute-force alg
-
+typedef enum logic [2:0] {
+    INITIAL, // nothing happens here
+    INCRIDX, // upward barrel shift of rowbias index
+    RQROWBS, // request row-bias with new index
+    LDROWBS, // catch and hold the value of rowbias' reply
+    PASSBAK, // nothing works- signal a backtrack request
+    PASSFWD  // something worked- signal to continue brute-force alg
+} tile_fsm_state;
 
 
 /**
@@ -27,8 +26,8 @@ module tile #()
     input reset,
     input myturn,
 
-    output passbak, // backtrack and try something different.
-    output passfwd, // found something that worked. forge onward.
+    output passbak, // nothing worked. backtrack and try something different.
+    output passfwd, // found something that worked. forge ahead.
 
     output reg    [`GRID_LEN:0] rqindex,        // 1-hot. request certain entry of rowbias.
     output                      updaterowbias   //  bool. make rowbias update using rqindex.
@@ -38,7 +37,8 @@ module tile #()
 
 ); // I/O SIGNALS LIST END.
 
-    reg [`TILE_S_STATEWIDTH-1:0] s_curr, s_next;
+    tile_fsm_state s_curr;
+    tile_fsm_state s_next;
 
     // always-block for rqindex:
     always_ff @(posedge clock) begin
@@ -46,7 +46,7 @@ module tile #()
             // set 1-hot with most significant bit on:
             rqindex <= {1'b1,{`GRID_LEN{1'b0}}};
         end
-        else if (s_curr == `TILE_S_INCRIDX) begin
+        else if (s_curr == INCRIDX) begin
             // barrel-shift upward:
             rqindex <= {rqindex[`GRID_LEN-1:0],rqindex[`GRID_LEN]};
         end
@@ -58,7 +58,7 @@ module tile #()
             // set to all zeros:
             value <= {`GRID_LEN{1'b0}};
         end
-        else if (s_curr == `TILE_S_LDROWBS) begin
+        else if (s_curr == LDROWBS) begin
             // catch and hold [rowbias]'s value:
             // this is incredibly important.
             value <= rowbias;
@@ -69,28 +69,32 @@ module tile #()
 
     // STATE MACHINE:
     always_comb begin case (s_curr)
-        `TILE_S_INITIAL: s_next = myturn ? `TILE_S_INCRIDX : `TILE_S_INITIAL;
-        `TILE_S_INCRIDX: s_next = `TILE_S_RQROWBS;
-        `TILE_S_RQROWBS: s_next = `TILE_S_LDROWBS;
-        `TILE_S_LDROWBS: begin // see [value]'s always block for effects.
+        INITIAL: s_next = myturn ? INCRIDX : INITIAL;
+        INCRIDX: s_next = RQROWBS;
+        RQROWBS: s_next = LDROWBS;
+        LDROWBS: begin // see [value]'s always block for effects.
             if (rqindex[`GRID_LEN]) begin
-                s_next = `TILE_S_PASSBAK;
+                // nothing works in this tile.
+                s_next = PASSBAK;
             end
             else if (occupiedmask & rowbias) begin
-                s_next = `TILE_S_INCRIDX;
+                // the new rowbias value didn't work.
+                // keep control and try something different.
+                s_next = INCRIDX;
             end
             else begin
-                s_next = `TILE_S_PASSFWD;
+                // found something that worked.
+                s_next = PASSFWD;
             end
         end
-        `TILE_S_PASSBAK: s_next = `TILE_S_INITIAL;
-        `TILE_S_PASSFWD: s_next = `TILE_S_INITIAL;
+        PASSBAK: s_next = INITIAL;
+        PASSFWD: s_next = INITIAL;
     endcase; end
 
     // always-block to update current state:
     always_ff @(posedge clock) begin
         if (reset) begin
-            s_curr <= `TILE_S_INITIAL;
+            s_curr <= INITIAL;
         end
         else begin
             s_curr <= s_next;
@@ -100,8 +104,8 @@ module tile #()
 
 
     // output assignments:
-    assign passbak = (s_curr == `TILE_S_PASSBAK);
-    assign passfwd = (s_curr == `TILE_S_PASSFWD);
+    assign passbak = (s_curr == PASSBAK);
+    assign passfwd = (s_curr == PASSFWD);
 
 
 endmodule : tile
