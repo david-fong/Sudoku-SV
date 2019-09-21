@@ -20,7 +20,7 @@ module grid #()
     wire [`GRID_AREA-1:0] passbaks;
     wire [`GRID_AREA-1:0] passfwds;
     assign myturns = {
-        {passbaks[`GRID_AREA-1:1],1'b0} | 
+        {passbaks[`GRID_AREA-1:1],1'b0}| 
         {start,passfwds[`GRID_AREA-2:0]}
     };
     assign done_failure = passbaks[0];
@@ -29,7 +29,7 @@ module grid #()
     // [rowbias] signals:
     wire [`GRID_LEN :0][`GRID_AREA-1:0] rqindices;
     wire [`GRID_LEN-1:0][`GRID_LEN-1:0] updaterowbiases;
-    wire [`GRID_LEN-1:0] rowbiases       [`GRID_LEN];
+    wire [`GRID_LEN-1:0] rowbiases [`GRID_LEN];
 
     // occupancy signals:
     // [values] is in row-major order.

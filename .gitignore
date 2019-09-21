@@ -9,7 +9,9 @@ transcript
 *.qdb
 *.qpg
 *.qtl
+*.qws
 *.qpf
+*.qsf
 *.sof
 *.bak
 modelsim.ini
