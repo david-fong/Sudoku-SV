@@ -1,5 +1,5 @@
 
-`include "def_griddimensions.sv"
+`include "grid_dimensions.svh"
 
 /**
  * a bus whose value is intended to be broadcasted to all tiles in a
@@ -15,7 +15,7 @@
  * outputs are undefined if inputs attempt to index using a non-1hot
  *     value.
  */
-module rowbias #(parameter w=`GRID_LEN;)
+module rowbias #(parameter w=`GRID_LEN)
 (
     input clock,
     input reset,
@@ -31,27 +31,29 @@ module rowbias #(parameter w=`GRID_LEN;)
 
     reg [w-1:0] shufflepool [w+1];
 
-    wire [w-1:0] __busvalue;
+    reg [w-1:0] __busvalue;
     always_ff @(posedge clock) begin
         if (update) begin
             busvalue <= __busvalue;
         end
     end
-    wire [w-1:0] filteredshufflepool [w+1];
-    generate
-        for (genvar i = 0; i < w+1; i++) begin : poolentryloop
-            assign filteredshufflepool[i] = {w{rqindex[i]}};
-        end : poolentryloop
-    endgenerate
-    assign __busvalue = |filteredshufflepool;
+    always_comb begin
+        __busvalue = 'b0;
+        for (int unsigned i = 0; i < w+1; i++) begin
+            if (rqindex[i]) begin
+                __busvalue = shufflepool[i];
+                break;
+            end
+        end
+    end
 
 endmodule : rowbias
 
 
 
-// arbiter. filters for least significant on-bit.
+// arbiter. filter for least significant on-bit.
 // currently not used since spec for rowbias does not permit non-1hot indexing.
-module arbiter #(parameter w;)
+module arbiter #(parameter w)
 (
     input [w-1:0] in,
     output [w-1:0] out

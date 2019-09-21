@@ -12,6 +12,7 @@ transcript
 *.qpf
 *.sof
 *.bak
+modelsim.ini
 work/
 db/
 incremental_db/

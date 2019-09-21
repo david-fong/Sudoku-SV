@@ -1,5 +1,5 @@
 
-`include "def_griddimensions.sv"
+`include "grid_dimensions.svh"
 
 /**
  * 
@@ -27,15 +27,15 @@ module grid #()
     assign done_success = passfwds[`GRID_AREA-1];
 
     // [rowbias] signals:
-    wire [`GRID_LEN:0] rqindices [`GRID_AREA];
-    wire [`GRID_LEN-1:0] updaterowbiases [`GRID_LEN];
-    wire [`GRID_LEN-1:0] rowbiases [`GRID_LEN];
+    wire [`GRID_LEN :0][`GRID_AREA-1:0] rqindices;
+    wire [`GRID_LEN-1:0][`GRID_LEN-1:0] updaterowbiases;
+    wire [`GRID_LEN-1:0] rowbiases       [`GRID_LEN];
 
     // occupancy signals:
     // [values] is in row-major order.
-    wire [`GRID_LEN-1:0] rowmajorvalues [`GRID_LEN][`GRID_LEN];
-    wire [`GRID_LEN-1:0] colmajorvalues [`GRID_LEN][`GRID_LEN];
-    wire [`GRID_LEN-1:0] blkmajorvalues [`GRID_LEN][`GRID_LEN];
+    wire [`GRID_LEN-1:0][`GRID_LEN-1:0] rowmajorvalues [`GRID_LEN];
+    wire [`GRID_LEN-1:0][`GRID_LEN-1:0] colmajorvalues [`GRID_LEN];
+    wire [`GRID_LEN-1:0][`GRID_LEN-1:0] blkmajorvalues [`GRID_LEN];
     wire [`GRID_LEN-1:0] rowoccmasks [`GRID_LEN];
     wire [`GRID_LEN-1:0] coloccmasks [`GRID_LEN];
     wire [`GRID_LEN-1:0] blkoccmasks [`GRID_LEN];
@@ -45,22 +45,22 @@ module grid #()
 
     // generate [rowbias] modules:
     generate
-        for (genvar r = 0; r < `GRID_LEN; r++) begin : rowloop
+        for (genvar r = 0; r < `GRID_LEN; r++) begin // rows
             rowbias #() ROWBIASx(
                 .clock,
                 .reset,
-                .update(|updaterowbiases[r]),
-                .rqindex(|rqindices[((r+1)*`GRID_LEN)-1:(r*`GRID_LEN)]),
-                .busvalue(rowbiases[r]),
+                .update( /*or:*/|updaterowbiases[r]),
+                .rqindex(/*or:*/|{rqindices[(r*`GRID_LEN)+:`GRID_LEN]}),
+                .busvalue(rowbiases[r])
             );
-        end : rowloop
+        end // rows
     endgenerate
 
     // generate [tile] modules:
     generate
-        for (genvar r = 0; r < `GRID_LEN; r++) begin : rowloop
-        for (genvar c = 0; c < `GRID_LEN; c++) begin : colloop
-            genvar i = (r * `GRID_LEN) + c;
+        for (genvar r = 0; r < `GRID_LEN; r++) begin // rows
+        for (genvar c = 0; c < `GRID_LEN; c++) begin // cols
+            int unsigned i = (r * `GRID_LEN) + c;
             tile #() TILEx(
                 .clock,
                 .reset,
@@ -75,36 +75,35 @@ module grid #()
                     coloccmasks[c]|
                     blkoccmasks[blockof(r,c)]
                 }),
-                .value(rowmajorvalues[r][c]),
+                .value(rowmajorvalues[r][c])
             );
-        end : colloop
-        end : rowloop
+        end // cols
+        end // rows
     endgenerate
 
     // generate [OR] modules for [tile.occupiedmask] inputs:
     generate
-        for (genvar out = 0; out < `GRID_LEN; out++) begin : outloop
-            assign rowoccmasks[out] = |rowmajorvalues[out];
-            assign coloccmasks[out] = |colmajorvalues[out];
-            assign blkoccmasks[out] = |blkmajorvalues[out];
-        end : outloop
+        for (genvar out = 0; out < `GRID_LEN; out++) begin
+            assign rowoccmasks[out] = /*or:*/|rowmajorvalues[out];
+            assign coloccmasks[out] = /*or:*/|colmajorvalues[out];
+            assign blkoccmasks[out] = /*or:*/|blkmajorvalues[out];
+        end
     endgenerate
 
     // loop to map [rowmajorvalues] to [colmajorvalues]:
     // r and c are in terms of row-major-order. nothing convoluted.
     generate
-        for (genvar r = 0; r < `GRID_LEN; r++) begin : rowloop
-        for (genvar c = 0; c < `GRID_LEN; c++) begin : colloop
-            assign colmajorvalues[c][r] = rowMajorvalues[r][c];
-        end : colloop
-        end : rowloop
+        for (genvar r = 0; r < `GRID_LEN; r++) begin // rows
+        for (genvar c = 0; c < `GRID_LEN; c++) begin // cols
+            assign colmajorvalues[c][r] = rowmajorvalues[r][c];
+        end // cols
+        end // rows
     endgenerate
 
     // loop to map [rowmajorvalues] to [blkmajorvalues]:
     generate
-        genvar b, i;
-        for (genvar r = 0; r < `GRID_LEN; r++) begin : rowloop
-        for (genvar c = 0; c < `GRID_LEN; c++) begin : colloop
+        for (genvar r = 0; r < `GRID_LEN; r++) begin // rows
+        for (genvar c = 0; c < `GRID_LEN; c++) begin // cols
             // some test ideas:
             // 0,0->0,0
             // 0,3->1,0
@@ -112,11 +111,11 @@ module grid #()
             // 1,0->0,3
             // 1,3->1,3
             // 1,6->2,3
-            b = ((r / `GRID_ORD) * `GRID_ORD) + (c / `GRID_ORD);
-            i = ((r % `GRID_ORD) * `GRID_ORD) + (c % `GRID_ORD);
-            assign blkmajorvalues[b][i] = rowMajorvalues[r][c];
-        end : colloop
-        end : rowloop 
+            int unsigned b = ((r / `GRID_ORD) * `GRID_ORD) + (c / `GRID_ORD);
+            int unsigned i = ((r % `GRID_ORD) * `GRID_ORD) + (c % `GRID_ORD);
+            assign blkmajorvalues[b][i] = rowmajorvalues[r][c];
+        end // rows
+        end // cols
     endgenerate
 
 
@@ -124,7 +123,11 @@ module grid #()
 endmodule : grid
 
 // get block number given a row number and column number:
-function blockof(integer row, integer col) begin
+function int unsigned blockof
+(
+    int unsigned row,
+    int unsigned col
+);
     return ((row/`GRID_ORD)*`GRID_ORD) + (col/`GRID_ORD);
-end
+endfunction
 

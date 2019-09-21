@@ -1,5 +1,5 @@
 
-`include "def_griddimensions.sv"
+`include "grid_dimensions.svh"
 
 typedef enum logic [2:0] {
     INITIAL, // nothing happens here. waits until [myturn].
@@ -27,11 +27,11 @@ module tile #()
     output passbak, // nothing worked. backtrack and try something different.
     output passfwd, // found something that worked. forge ahead.
 
-    output reg  [`GRID_LEN  :0] rqindex,        // 1hot. request certain entry of rowbias.
-    output                      updaterowbias   // bool. make rowbias update using rqindex.
+    output reg    [`GRID_LEN:0] rqindex,        // 1hot. request certain entry of rowbias.
+    output                      updaterowbias,  // bool. make rowbias update using rqindex.
     input       [`GRID_LEN-1:0] rowbias,        // 1hot. value to try. request using index.
     input       [`GRID_LEN-1:0] occupiedmask,   // 1hot. mask of external values to avoid.
-    output reg  [`GRID_LEN-1:0] value,          // 1hot. this tile's current value.
+    output reg  [`GRID_LEN-1:0] value           // 1hot. this tile's current value.
 );
 
     tile_fsm_state s_curr;
@@ -104,7 +104,7 @@ module tile #()
     // output assignments:
     assign passbak = (s_curr == PASSBAK);
     assign passfwd = (s_curr == PASSFWD);
-    assign updaterowbias = (s_curr == RQROWBIAS);
+    assign updaterowbias = (s_curr == RQROWBS);
 
 
 endmodule : tile
