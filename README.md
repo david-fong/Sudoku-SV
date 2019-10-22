@@ -40,18 +40,43 @@ in solution generation, brute force is necessary. this may sound like a bad thin
 - on uncertainty: for one thing, I see no other way. (although I also keep in mind the times I felt quite sure of something and found out I was wrong). going down some wrong paths is inevitable. you cannot be sure how bad they may be, but you can be certain that they will happen. perhaps this bothers me about sudoku because it also bothers me about life, for which I am trying to convince my mind of the same thing.
 - on elegance: another thing that I've been thinking about is the line that separates brute force and what in my mind is "intelligent" or "elegant" thinking. I dislike brute force because it feel inelegant. when I come to a point where I don't know how to continue without trying something that might not work, I wonder if I'm just missing some clever logical deduction, and that's the point when I give up and try a different puzzle. however, I don't believe that all sudoku puzzles can be solved with logical deductions. so for the sake of my sanity, I now believe that elegance is not in doing everything logically, but in being aware of what can be done logically, and having grit, faith, and a healthy amount of optimism for the rest that requires it. I include faith- because the solution is there. it's just that it requires searching for.
 
+
 ### how it's done:
 
 enough talk and feelings :) how is brute force solution generation done? the basic procedure is quite simple. I haven't done much reading on this subject so I can only speak from the things I have found out from practice.
+
+
+#### initialization steps:
 
 1. start with an empty grid. ie. here, each tile has _l_ + 1 possible values: the integers between 1 and _l_ inclusive, and the special value, "empty".
 1. decide on a tile traversal-order. the order can be arbitrary, but must remain constant throughout the whole process. in software, following row-major order is convenient and performs well (compared to other orders, including random orders).
 1. decide on each tile's value-order. that is- in what order will it try on each value (excluding the special "empty" value). in a naive implementation, all tiles choose sequential order. the problem with this is that the generated solutions are 100% predictable, and also follows a pattern that make it less interesting for a player who notices that pattern to solve. giving a random value-order to each tile produces solutions with no apparant pattern, which is highly desireable, but also incurs significant space overhead. I have found sharing a value-order between groups of a chosen group-type to be an effective balance. we can leverage some nice properties later if the chosen group-type aligns to the traversal-order chosen in the previous step.
 1. optionally seed some times with random values. I say random, but if this step is to be done, it must be done carefully. you must be absolutely certain that the seeds will not create a situation where no solution exists, and your seeds must still follow the rules on what makes a valid solution. a safe example, is to seed all tiles in blocks along the main diagonal. this means that for all unseeded tiles, there is an optimistic worst-case number of remaining value candidates equal to _l_ - 2 * _s_, which, for _s_ > 2, is always greater than zero. I say optimistic because there is no guarantee that any remaining solutions exist, and because I haven't tried to prove whether or not remaing solutions are guaranteeed. but in practice, I have always found there to be more than enough remaining options (even at _s_ equals three) to find a solution. in fact, I have measured performance with seeding to be slightly better than without, but I suspect that those benefits are trivial and become harder to reap as _s_ increases. this is something worthy of further work! it currently is not the focus of my interest.
+
+
+#### traversal steps:
+
 1. 
 
-* worst case time complexity. some discussion on NP-complete problems.
-* notes on randomness
+
+#### remarks:
+
+- only one tile is "active" (trying values) at a time. any attempt at parallelization without using separate grids will result in skipped outcomes.
+
+
+#### time complexity:
+
+if we continue with the assumption that it takes constant time to check whether a value can be tried for a tile, and treat each trying of a value in a tile as a single unit of time, then we can calculate and bound the absolute-worst-case time complexity as so:
+
+each tile can have _l_ values, and there are _a_ tiles. this means there are _l_ ^ _a_ permutations (most of which will not be followed to the end due to how we short circuit on a non-working value). this equals (_s_ ^ 2) ^ (_s_ ^ 4), which simplifies to (_s_ ^ (2 * _s_ ^ 4)). that is, the absolute-worst-case time complexity can be bounded by (_s_ ^ (2 * _s_ ^ 4)).
+
+the limitation of software is that a single tile cannot find a a value that is not guaranteed to fail in a constant amount of time. in other words, with some book-keeping, it can check if a value is guaranteed to fail in a constant amount of time, but it doesn't have high-level support for arbiting bits, which would allow it to find a value that to try that will succeed without instruction-level iteration.
+
+but we don't have that limitation with hardware! let's now imagine that we traverse by rows, that tiles in the same row share the same value-order, and that with hardware, we can instantaneously avoid testing for values that are already in the row. then the number of test operations we perform is bounded by the product of the number of tests that will be performed per row. that is, ((_s_ ^ 2)!) ^ (_s_ ^ 2).
+
+* some discussion on NP-complete problems.
+
+
 
 
 
