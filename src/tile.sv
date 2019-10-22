@@ -1,7 +1,7 @@
 
 `include "grid_dimensions.svh"
 
-typedef enum logic [2:0] {
+typedef enum logic [5:0] {
     INITIAL, // nothing happens here. waits until [myturn].
     INCRIDX, // upward barrel shift of rowbias index.
     RQROWBS, // request row-bias with new index.

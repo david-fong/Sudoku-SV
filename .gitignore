@@ -1,10 +1,18 @@
 
+# vim:
 *.swp
+*.swo
+*.orig
 
-# simulation and synthesis tool files:
+# modelsim:
+modelsim.ini
 transcript
-*.mti
 *.mpf
+*.bak
+*.mti
+work/
+
+# quartus:
 *.wlf
 *.qdb
 *.qpg
@@ -13,10 +21,8 @@ transcript
 *.qpf
 *.qsf
 *.sof
-*.bak
-modelsim.ini
-work/
 db/
 incremental_db/
 simulation/
 output_files/
+
