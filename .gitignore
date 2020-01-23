@@ -20,7 +20,6 @@ work/
 *.qws
 *.qpf
 *.qsf
-*.sof
 db/
 incremental_db/
 simulation/
