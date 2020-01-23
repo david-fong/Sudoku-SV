@@ -17,17 +17,15 @@ The systematic processes of solving a puzzle and of generating a solution using 
 
 ## Wikipedia Links
 
-```text
-https://wikipedia.org/wiki/Sudoku
-https://wikipedia.org/wiki/Mathematics_of_Sudoku
-https://wikipedia.org/wiki/Sudoku_solving_algorithms
-```
+- [Sudoku (Topic Homepage)](https://wikipedia.org/wiki/Sudoku)
+- [Mathematics of Sudoku](https://wikipedia.org/wiki/Mathematics_of_Sudoku)
+- [Sudoku Solving Algorithms](https://wikipedia.org/wiki/Sudoku_solving_algorithms)
 
 ## Solution Space
 
 We can compute some easier ceilings on the number of unique solutions (including those that are symbolically and/or relationally equivalent) first to help get an idea of the scale of things. We know it must be equal to or less than the number of symbol arrangments that do not need to follow the rules, which is `(S^2)^(S^4)`. We know that each group of the same kind cannot contain duplicate elements, so it must be equal to or less than `((S^2)!)^(S^2)`, which is the number of symbol arrangements where the conflict rule is only applied to groups of one chosen type.
 
-The true number of all solutions can be calculated by taking the product of the number of symbol options for each container as they are procedurally filled-in according to a conflict-heavy traversal order for solution generation. Symbol option counts should be taken pessimistically: Use the complement of the maximum occupancy count across the three related group types. That is, if the next container to fill in the theoretical generation traversal for a size-3 grid is in a row occupied by 3 other symbols, a column by 5, and a block by 2, then the pessimistic number of symbol options for that container is `9-max(3,5,2) = 4`.
+The true number of all solutions can be calculated by taking the product of the number of symbol options for each container as they are procedurally filled-in according to a conflict-heavy traversal order for solution generation. Symbol option counts should be taken pessimistically: Use the complement of the maximum occupancy count across the three related group types. That is, if the next container to fill in the theoretical generation traversal for a size-3 grid is in a row occupied by 3 other symbols, a column by 5, and a block by 2, then the pessimistic number of symbol options for that container is `9 - max(3,5,2) = 4`.
 
 The equation described above would be quite complex. As a first step, we can take a slightly simplified version that is still a provable ceiling for the size of the solution space (but is still not the lowest provable ceiling). The traversal order travels over all blocks in row-major order, and at each block, traverses it at once internally- also in row-major order.
 
@@ -35,7 +33,7 @@ The equation described above would be quite complex. As a first step, we can tak
 
 The above diagram shows that for a block `B_i,j`, The number of combinations of symbols according to this traversal order is no more than:
 
-<img src="assets/images/solution_space_approx.png" width="350" />
+<img src="assets/images/solution_space_approx.png" size="400" align="middle" />
 
 ## Time Complexity
 
