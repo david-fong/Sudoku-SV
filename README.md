@@ -31,9 +31,17 @@ The equation described above would be quite complex. As a first step, we can tak
 
 `TODO: create diagrams illustrating the logic and insert them here.`
 
-The above diagram shows that for a block `B_i,j`, The number of combinations of symbols according to this traversal order is no more than:
+The above diagram shows that for a block `B_i,j`, the number of combinations of symbols according to this traversal order is no more than:
 
-<img src="assets/images/solution_space_approx.png" size="400" align="middle" />
+<img src="assets/images/solution_space_approx.png" align="middle" width="400" />
+
+The above formulae can be viewed [here on desmos](https://www.desmos.com/calculator/qfclkf3jr1), or pasted into desmos using the below latex:
+
+```latex
+f_{0}\left(s\right)=\left(s^{2}\right)^{s^{4}}
+f_{1}\left(s\right)=\left(s^{2}!\right)^{s^{2}}
+f_{2}\left(s\right)=\prod_{i=0}^{s-1}\left(\frac{\left[\left(s\left(s-i-0\right)\right)!\right]^{\left(i+1\right)}}{\left[\left(s\left(s-i-1\right)\right)!\right]^{\left(i\right)}}^{\left(2i+1\right)}\right)
+```
 
 ## Time Complexity
 
