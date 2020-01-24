@@ -33,7 +33,9 @@ The equation described above would be quite complex. As a first step, we can tak
 
 The above diagram shows that for a block `B_i,j`, the number of combinations of symbols according to this traversal order is no more than:
 
-<img src="assets/images/solution_space_approx.png" height="160" />  <img src="assets/images/solution_space_graphs" height="160" />
+<img src="assets/images/solution_space_graphs.png" width="55%" align="left" />
+
+<img src="assets/images/solution_space_approx.png" width="40%" align="right" />
 
 [**`open graph in desmos`** 👈](https://www.desmos.com/calculator/t94xhzbf6k)
 
