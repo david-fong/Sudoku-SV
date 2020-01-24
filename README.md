@@ -3,9 +3,9 @@
 
 ### Table of Contents:
 
-- [Sudoku in a Nutsheel](#sudoku-in-a-nutshell)
+- [Sudoku in a Nutshell](#sudoku-in-a-nutshell)
 - [Wikipedia Links](#wikipedia-links)
-- 
+- [Solution Space](#solution-space)
 
 ## Sudoku in a Nutshell
 
@@ -33,15 +33,9 @@ The equation described above would be quite complex. As a first step, we can tak
 
 The above diagram shows that for a block `B_i,j`, the number of combinations of symbols according to this traversal order is no more than:
 
-<img src="assets/images/solution_space_approx.png" align="middle" width="400" />
+<img src="assets/images/solution_space_approx.png" height="160" />  <img src="assets/images/solution_space_graphs" height="160" />
 
-The above formulae can be viewed [here on desmos](https://www.desmos.com/calculator/qfclkf3jr1), or pasted into desmos using the below latex:
-
-```latex
-f_{0}\left(s\right)=\left(s^{2}\right)^{s^{4}}
-f_{1}\left(s\right)=\left(s^{2}!\right)^{s^{2}}
-f_{2}\left(s\right)=\prod_{i=0}^{s-1}\left(\frac{\left[\left(s\left(s-i-0\right)\right)!\right]^{\left(i+1\right)}}{\left[\left(s\left(s-i-1\right)\right)!\right]^{\left(i\right)}}^{\left(2i+1\right)}\right)
-```
+[**`open graph in desmos`** 👈](https://www.desmos.com/calculator/t94xhzbf6k)
 
 ## Time Complexity
 
