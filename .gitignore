@@ -8,9 +8,9 @@
 modelsim.ini
 transcript
 *.mpf
-*.bak
 *.mti
-work/
+*.bak
+modelsim/work/
 
 # quartus:
 *.wlf

@@ -22,7 +22,7 @@ module rowbias #(parameter w=`GRID_LEN)
     input [w-1:0] rqindex,
     output reg [w-1:0] busvalue
 );
-    reg [w-1:0] shufflepool [w];
+    reg [w-1:0] shufflepool [w-1:0];
 
     // initialize shufflepool:
     initial begin
@@ -33,19 +33,14 @@ module rowbias #(parameter w=`GRID_LEN)
         end
     end
 
-
-    reg [w-1:0] __busvalue;
     always_ff @(posedge clock) begin
         if (update) begin
-            busvalue <= __busvalue;
-        end
-    end
-    always_comb begin
-        __busvalue = 'b0;
-        for (int unsigned i = 0; i < w; i++) begin
-            if (rqindex[i]) begin
-                __busvalue = shufflepool[i];
-                break;
+            busvalue = 'z;
+            for (int i = 0; i < w; i++) begin
+                if (rqindex[i]) begin
+                    busvalue = shufflepool[i];
+                    break;
+                end
             end
         end
     end

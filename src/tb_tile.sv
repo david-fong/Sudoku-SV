@@ -46,8 +46,6 @@ module tb_tile;
         reset  = 0;
         myturn = 1; #10;
         myturn = 0; #5;
-
+        $stop;
     end
-
-endmodule : tb_tile
-
+endmodule

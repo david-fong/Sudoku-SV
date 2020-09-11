@@ -8,9 +8,17 @@ module grid #()
     input clock,
     input reset,
     input start,
-    output done_success,
-    output done_failure
+    output done,
+    output success
 );
+    // get block number given a row number and column number:
+    function int unsigned blockof (
+        int unsigned row,
+        int unsigned col
+    );
+        return ((row/`GRID_ORD)*`GRID_ORD) + (col/`GRID_ORD);
+    endfunction
+
     enum logic [4:0] {
         RESET        = 1 << 0, //
         START        = 1 << 1, //
@@ -21,19 +29,18 @@ module grid #()
 
     // chaining and success signals:
     wire [`GRID_AREA-1:0] myturns;
-    wire [`GRID_AREA-1:0] passbaks;
-    wire [`GRID_AREA-1:0] passfwds;
-    assign myturns = {
-        {passbaks[`GRID_AREA-1:1], 1'b0}|
-        {start, passfwds[`GRID_AREA-2:0]}
-    };
-    assign done_success = (state == DONE_SUCCESS);
-    assign done_failure = (state == DONE_FAILURE);
+    wire passbaks [`GRID_LEN-1:0][`GRID_LEN-1:0];
+    wire passfwds [`GRID_LEN-1:0][`GRID_LEN-1:0];
+    wire [`GRID_AREA-1:0] _passbaks = {>>{{>>{passbaks}}}};
+    wire [`GRID_AREA-1:0] _passfwds = {>>{{>>{passfwds}}}};
+    assign myturns = {1'b0, _passbaks[`GRID_AREA-1:1]} | {_passfwds[`GRID_AREA-2:0], (state==START)};
+    assign done = (state == DONE_SUCCESS) || (state == DONE_FAILURE);
+    assign success = (state == DONE_SUCCESS);
 
     // [rowbias] signals:
-    wire [`GRID_LEN  :0][`GRID_AREA-1:0] biasidx;
-    wire [`GRID_LEN-1:0][ `GRID_LEN-1:0] rq_valtotry;
-    wire [`GRID_LEN-1:0] valtotry [`GRID_LEN];
+    wire [`GRID_LEN-1:0] biasidx [`GRID_LEN][`GRID_LEN];
+    wire [`GRID_LEN -1:0][`GRID_LEN-1:0] rq_valtotry;
+    wire [`GRID_LEN -1:0] valtotry [`GRID_LEN];
 
     // occupancy signals:
     // [values] is in row-major order.
@@ -50,14 +57,14 @@ module grid #()
             state <= RESET;
         end
         else begin case (state)
-            RESET: state <= START;
+            RESET: state <= start ? START : RESET;
             START: state <= WAIT;
-            WAIT:  state <=
+            WAIT: begin state <= (
                   passbaks[           0] ? DONE_FAILURE
                 : passfwds[`GRID_AREA-1] ? DONE_SUCCESS
-                : WAIT;
-            DONE_SUCCESS: state <= state;
-            DONE_FAILURE: state <= state;
+                : WAIT); end
+            DONE_SUCCESS: state <= DONE_SUCCESS;
+            DONE_FAILURE: state <= DONE_FAILURE;
         endcase end
     end: grid_fsm
 
@@ -65,11 +72,15 @@ module grid #()
     // generate [rowbias] modules:
     generate
         for (genvar r = 0; r < `GRID_LEN; r++) begin // rows
+            wor [`GRID_LEN-1:0] rqindex;
+            for (genvar c = 0; c < `GRID_LEN; c++) begin
+                assign rqindex = biasidx[r][c];
+            end
             rowbias /*#()*/ ROWBIASx(
                 .clock,
                 .reset,
                 .update( /*or:*/|rq_valtotry[r]),
-                .rqindex(/*or:*/|{biasidx[(r*`GRID_LEN)+:`GRID_LEN]}),
+                .rqindex(/*or:*/rqindex),
                 .busvalue(valtotry[r])
             );
         end // rows
@@ -84,14 +95,14 @@ module grid #()
                 .clock,
                 .reset,
                 .myturn(myturns[i]),
-                .passbak(passbaks[i]),
-                .passfwd(passfwds[i]),
-                .biasidx(biasidx[i]),
+                .passbak(passbaks[r][c]),
+                .passfwd(passfwds[r][c]),
+                .biasidx(biasidx[r][c]),
                 .rq_valtotry(rq_valtotry[r][c]),
                 .valtotry(valtotry[r]),
                 .valcannotbe({
-                    rowalreadyhas[r]|
-                    colalreadyhas[c]|
+                    rowalreadyhas[r] |
+                    colalreadyhas[c] |
                     blkalreadyhas[blockof(r,c)]
                 }),
                 .value(rowmajorvalues[r][c])
@@ -138,13 +149,3 @@ module grid #()
     endgenerate
 
 endmodule : grid
-
-
-// get block number given a row number and column number:
-function int unsigned blockof
-(
-    int unsigned row,
-    int unsigned col
-);
-    return ((row/`GRID_ORD)*`GRID_ORD) + (col/`GRID_ORD);
-endfunction

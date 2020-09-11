@@ -31,28 +31,28 @@ module sudoku
 //    output [6:0] HEX0
 );
 
-    wire done_success;
-    wire done_failure;
+    wire done;
+    wire success;
 
     // instantiate the grid module:
     grid #() GRIDx(
         .clock(CLOCK_50),
         .reset(~KEY[0]),
         .start(~KEY[1]),
-        .done_success,
-        .done_failure
+        .done,
+        .success
     );
 
     // always-block for success / failure / working:
     always_comb begin
-        if (done_success) begin
-            HEX5 = 7'b0_01_0_01_0; // 'S'
+        if (done & success) begin
+            HEX5 <= 7'b0_01_0_01_0; // 'S'
         end
-        else if (done_failure) begin
-            HEX5 = 7'b0_00_1_11_0; // 'F'
+        else if (done & ~success) begin
+            HEX5 <= 7'b0_00_1_11_0; // 'F'
         end
         else begin
-            HEX5 = 7'b0_11_1_11_1; // '-'
+            HEX5 <= 7'b0_11_1_11_1; // '-'
         end
     end
 

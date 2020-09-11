@@ -33,7 +33,7 @@ module tile #()
     assign rq_valtotry  = (state == RQROWBS);
 
     reg [`GRID_LEN:0] index;
-    assign biasidx = index[0+:`GRID_LEN];
+    assign biasidx = (state == RQROWBS) ? index[0+:`GRID_LEN] : 'b0;
 
     // always-block for [index]:
     always_ff @(posedge clock) begin: tile_index
