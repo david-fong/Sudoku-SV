@@ -1,4 +1,3 @@
-
 `include "grid_dimensions.svh"
 
 /**
@@ -18,7 +17,7 @@ module tile #()
     input   [`GRID_LEN-1:0] valcannotbe,    // 1hot. mask of external values to avoid.
     output reg [`GRID_LEN-1:0] value        // 1hot. this tile's current value.
 );
-    enum int unsigned [6:0] {
+    enum logic [6:0] {
         RESET   = 1 << 0, // reset internal registers.
         WAITING = 1 << 1, // wait until [myturn].
         INCRIDX = 1 << 2, // upward barrel shift of rowbias index.
@@ -55,7 +54,7 @@ module tile #()
     always_ff @(posedge clock) begin: tile_value
         case (state)
             RESET: value <= 'b0;
-            LDROWBS: value <= valtotry;
+            LDROWBS: value <= index[`GRID_LEN] ? 'b0 : valtotry;
         endcase
     end: tile_value
 
@@ -72,7 +71,7 @@ module tile #()
             INCRIDX: state <= RQROWBS;
             RQROWBS: state <= LDROWBS;
             LDROWBS: begin // see [value]'s always block for effects.
-                if (biasidx[`GRID_LEN]) begin
+                if (index[`GRID_LEN]) begin
                     // nothing works in this tile.
                     state <= PASSBAK;
                 end

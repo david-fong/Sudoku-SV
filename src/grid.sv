@@ -1,4 +1,3 @@
-
 `include "grid_dimensions.svh"
 
 /**
@@ -12,12 +11,12 @@ module grid #()
     output done_success,
     output done_failure
 );
-    enum int unsigned [4:0] {
+    enum logic [4:0] {
         RESET        = 1 << 0, //
         START        = 1 << 1, //
         WAIT         = 1 << 2, //
         DONE_SUCCESS = 1 << 3, //
-        DONE_FAILURE = 1 << 4, //
+        DONE_FAILURE = 1 << 4 //
     } state;
 
     // chaining and success signals:
@@ -28,8 +27,8 @@ module grid #()
         {passbaks[`GRID_AREA-1:1], 1'b0}|
         {start, passfwds[`GRID_AREA-2:0]}
     };
-    assign done_failure = (state == DONE_FAILURE);
     assign done_success = (state == DONE_SUCCESS);
+    assign done_failure = (state == DONE_FAILURE);
 
     // [rowbias] signals:
     wire [`GRID_LEN  :0][`GRID_AREA-1:0] biasidx;
@@ -122,8 +121,8 @@ module grid #()
 
     // loop to map [rowmajorvalues] to [blkmajorvalues]:
     generate
-        for (genvar r = 0; r < `GRID_LEN; r++) begin // rows
-        for (genvar c = 0; c < `GRID_LEN; c++) begin // cols
+        for (genvar b = 0; b < `GRID_LEN; b++) begin // rows
+        for (genvar i = 0; i < `GRID_LEN; i++) begin // cols
             // some test ideas:
             // 0,0->0,0
             // 0,3->1,0
@@ -131,8 +130,8 @@ module grid #()
             // 1,0->0,3
             // 1,3->1,3
             // 1,6->2,3
-            int unsigned b = ((r / `GRID_ORD) * `GRID_ORD) + (c / `GRID_ORD);
-            int unsigned i = ((r % `GRID_ORD) * `GRID_ORD) + (c % `GRID_ORD);
+            int unsigned r = ((b/`GRID_ORD)*`GRID_ORD) + (i/`GRID_ORD);
+            int unsigned c = ((b%`GRID_ORD)*`GRID_ORD) + (i%`GRID_ORD);
             assign blkmajorvalues[b][i] = rowmajorvalues[r][c];
         end // rows
         end // cols

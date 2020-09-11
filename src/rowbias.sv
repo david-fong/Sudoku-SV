@@ -1,4 +1,3 @@
-
 `include "grid_dimensions.svh"
 
 /**
@@ -29,11 +28,9 @@ module rowbias #(parameter w=`GRID_LEN)
     initial begin
         // ideally this would be done upon each reset.
         // TODO.impl shuffling
-        generate
-            for (genvar i = 0; i < `GRID_LEN; i++) begin
-                shufflepool[i] = 'b1 << i;
-            end
-        endgenerate
+        for (int unsigned i = 0; i < `GRID_LEN; i++) begin
+            shufflepool[i] = 'b1 << i;
+        end
     end
 
 

@@ -23,7 +23,7 @@ module sudoku
     input [3:0] KEY,
     input [9:0] SW,
     output [9:0] LEDR,
-    output reg [6:0] HEX5,
+    output reg [6:0] HEX5
 //    output [6:0] HEX4,
 //    output [6:0] HEX3,
 //    output [6:0] HEX2,
@@ -37,10 +37,10 @@ module sudoku
     // instantiate the grid module:
     grid #() GRIDx(
         .clock(CLOCK_50),
-        .reset(~KEY[0]},
-        .start(~KEY[1]},
+        .reset(~KEY[0]),
+        .start(~KEY[1]),
         .done_success,
-        .done_failure,
+        .done_failure
     );
 
     // always-block for success / failure / working:
