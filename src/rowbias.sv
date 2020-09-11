@@ -12,24 +12,30 @@
  *     zeros, which is always addressable via the most significant
  *     bit.
  *
- * outputs are undefined if inputs attempt to index using a non-1hot
- *     value.
+ * outputs should be treated as undefined if inputs attempt to index
+       using a non-1hot value.
  */
 module rowbias #(parameter w=`GRID_LEN)
 (
     input clock,
     input reset,
     input update,
-    input [w:0] rqindex,
+    input [w-1:0] rqindex,
     output reg [w-1:0] busvalue
 );
+    reg [w-1:0] shufflepool [w];
+
     // initialize shufflepool:
     initial begin
-        // TODO: 
-        //  ideally this would be done upon each reset.
+        // ideally this would be done upon each reset.
+        // TODO.impl shuffling
+        generate
+            for (genvar i = 0; i < `GRID_LEN; i++) begin
+                shufflepool[i] = 'b1 << i;
+            end
+        endgenerate
     end
 
-    reg [w-1:0] shufflepool [w+1];
 
     reg [w-1:0] __busvalue;
     always_ff @(posedge clock) begin
@@ -39,7 +45,7 @@ module rowbias #(parameter w=`GRID_LEN)
     end
     always_comb begin
         __busvalue = 'b0;
-        for (int unsigned i = 0; i < w+1; i++) begin
+        for (int unsigned i = 0; i < w; i++) begin
             if (rqindex[i]) begin
                 __busvalue = shufflepool[i];
                 break;
@@ -48,7 +54,6 @@ module rowbias #(parameter w=`GRID_LEN)
     end
 
 endmodule : rowbias
-
 
 
 // arbiter. filter for least significant on-bit.
@@ -62,4 +67,3 @@ module arbiter #(parameter w)
     assign scratch = in | {scratch[w-2:0],1'b0};
     assign out = in & ~scratch;
 endmodule : arbiter
-

@@ -1,0 +1,18 @@
+{
+    "files.associations": {
+        "*.svh": "verilog"
+    },
+    "trailing-spaces.trimOnSave": true,
+
+    "todo-tree.filtering.useBuiltInExcludes": "file excludes",
+    "todo-tree.general.statusBar": "total",
+    "todo-tree.general.tags": [
+        "TODO.learn" ,
+        "TODO.design",
+        "TODO.doc"   ,
+        "TODO.impl"  ,
+        "TODO.test"  ,
+        "TODO.build" ,
+        "TODO",
+    ],
+}

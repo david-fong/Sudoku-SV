@@ -1,6 +1,6 @@
 
 /**
- * 
+ *
  * top level module.
  * "cursor" here refers the tile currently with control (ie. the most
  * recent tile that was told it was their turn.
@@ -17,7 +17,7 @@
  * hex0 displays the cursor's horizontal position
  *
  */
-module sudoku_sv
+module sudoku
 (
     input CLOCK_50,
     input [3:0] KEY,
@@ -56,5 +56,5 @@ module sudoku_sv
         end
     end
 
-endmodule : sudoku_sv
+endmodule : sudoku
 
