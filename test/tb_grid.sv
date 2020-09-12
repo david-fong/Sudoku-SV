@@ -1,5 +1,5 @@
-`include "grid_dimensions.svh"
-`define MAX_CLOCK_CYCLES 10000
+`include "../src/grid_dimensions.svh"
+`define MAX_CLOCK_CYCLES 20000
 
 /**
  *
@@ -20,7 +20,7 @@ module tb_grid;
     // emergency break:
     initial forever begin: emergency_break
         #(2 * `MAX_CLOCK_CYCLES);
-        $display("the testbench hit the emergency break.");
+        $display("\nthe testbench hit the emergency break.");
         $stop;
     end
 
@@ -38,9 +38,10 @@ module tb_grid;
         start = 0;
 
         @(posedge done);
-        $display("=======================");
-        $display("         DONE!         ");
-        $display("=======================");
+        $display("=========================");
+        $display("          DONE!          ");
+        $display("=========================");
+        DUT.print();
         #10;
         $stop;
     end: main

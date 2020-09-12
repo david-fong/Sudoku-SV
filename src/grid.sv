@@ -157,4 +157,32 @@ module grid #()
         end // cols
     endgenerate
 
+    // A task to print the grid values to the transcript:
+    task print();
+        $write("");
+        for (int r = 0; r < `GRID_LEN; r++) begin
+            if (r % `GRID_ORD == 0) begin
+                _print_horizontal_line();
+            end
+            for (int c = 0; c < `GRID_LEN; c++) begin
+                if (c % `GRID_ORD == 0) begin
+                    $write("| ");
+                end
+                $write("%1x ", $ln(rowmajorvalues[r][c])/$ln(2));
+            end
+            $write("| \n");
+        end
+        _print_horizontal_line();
+    endtask
+
+    // Helper function:
+    task _print_horizontal_line();
+        for (int c = 0; c < `GRID_LEN; c++) begin
+            if (c % `GRID_ORD == 0) begin
+                $write("+-");
+            end
+            $write("--");
+        end
+        $write("+\n");
+    endtask
 endmodule : grid

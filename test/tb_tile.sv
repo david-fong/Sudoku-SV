@@ -1,4 +1,4 @@
-`include "grid_dimensions.svh"
+`include "../src/grid_dimensions.svh"
 
 /**
  * a
