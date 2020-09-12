@@ -29,13 +29,13 @@ module rowbias #(parameter w=`GRID_LEN)
         // ideally this would be done upon each reset.
         // TODO.impl shuffling
         for (int unsigned i = 0; i < `GRID_LEN; i++) begin
-            shufflepool[i] = 'b1 << i;
+            shufflepool[i] = {{`GRID_LEN-1{1'b0}},1'b1} << i;
         end
     end
 
     always_ff @(posedge clock) begin
         if (update) begin
-            busvalue = 'z;
+            busvalue = 'x;
             for (int i = 0; i < w; i++) begin
                 if (rqindex[i]) begin
                     busvalue = shufflepool[i];

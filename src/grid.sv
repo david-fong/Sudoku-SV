@@ -26,11 +26,11 @@ module grid #(genpath_t GENPATH = BLOCK_COL)
     endfunction
 
     enum logic [4:0] {
-        RESET        = 1 << 0, //
-        START        = 1 << 1, //
-        WAIT         = 1 << 2, //
-        DONE_SUCCESS = 1 << 3, //
-        DONE_FAILURE = 1 << 4  //
+        RESET        = 5'b1 << 0, //
+        START        = 5'b1 << 1, //
+        WAIT         = 5'b1 << 2, //
+        DONE_SUCCESS = 5'b1 << 3, //
+        DONE_FAILURE = 5'b1 << 4  //
     } state;
     assign done = (state == DONE_SUCCESS) | (state == DONE_FAILURE);
     assign success = (state == DONE_SUCCESS);
@@ -81,41 +81,45 @@ module grid #(genpath_t GENPATH = BLOCK_COL)
 
     // generate [rowbias] modules:
     generate
-        for (genvar r = 0; r < `GRID_LEN; r++) begin // rows
+        genvar rbr;
+        for (rbr = 0; rbr < `GRID_LEN; rbr++) begin: gen_rowbias // rows
             wor [`GRID_LEN-1:0] rqindex;
-            for (genvar c = 0; c < `GRID_LEN; c++) begin
-                assign rqindex = biasidx[r][c];
+            genvar rbc;
+            for (rbc = 0; rbc < `GRID_LEN; rbc++) begin: gen_wor_rqindex
+                assign rqindex = biasidx[rbr][rbc];
             end
             rowbias /*#()*/ ROWBIASx(
                 .clock,
                 .reset,
-                .update( /*or:*/|rq_valtotry[r]),
+                .update( /*or:*/|rq_valtotry[rbr]),
                 .rqindex(/*or:*/rqindex),
-                .busvalue(valtotry[r])
+                .busvalue(valtotry[rbr])
             );
         end // rows
     endgenerate
 
     // generate [tile] modules:
     generate
-        for (genvar r = 0; r < `GRID_LEN; r++) begin // rows
-        for (genvar c = 0; c < `GRID_LEN; c++) begin // cols
-            int unsigned i = (r * `GRID_LEN) + c;
+        genvar tlr;
+        for (tlr = 0; tlr < `GRID_LEN; tlr++) begin: gen_tile_row // rows
+        genvar tlc;
+        for (tlc = 0; tlc < `GRID_LEN; tlc++) begin: gen_tile_col // cols
+            int unsigned tli = (tlr * `GRID_LEN) + tlc;
             tile /*#()*/ TILEx(
                 .clock,
                 .reset,
-                .myturn(myturns[i]),
-                .passbak(rowmaj_passbaks[r][c]),
-                .passfwd(rowmaj_passfwds[r][c]),
-                .biasidx(biasidx[r][c]),
-                .rq_valtotry(rq_valtotry[r][c]),
-                .valtotry(valtotry[r]),
+                .myturn(myturns[tli]),
+                .passbak(rowmaj_passbaks[tlr][tlc]),
+                .passfwd(rowmaj_passfwds[tlr][tlc]),
+                .biasidx(biasidx[tlr][tlc]),
+                .rq_valtotry(rq_valtotry[tlr][tlc]),
+                .valtotry(valtotry[tlr]),
                 .valcannotbe({
-                    rowalreadyhas[r] |
-                    colalreadyhas[c] |
-                    blkalreadyhas[blockof(r,c)]
+                    rowalreadyhas[tlr] |
+                    colalreadyhas[tlc] |
+                    blkalreadyhas[blockof(tlr,tlc)]
                 }),
-                .value(rowmajorvalues[r][c])
+                .value(rowmajorvalues[tlr][tlc])
             );
         end // cols
         end // rows
@@ -123,45 +127,58 @@ module grid #(genpath_t GENPATH = BLOCK_COL)
 
     // traversal path:
     generate
+        wire [`GRID_AREA-1:0] rowmaj_passbaks_packed;
+        wire [`GRID_AREA-1:0] rowmaj_passfwds_packed;
+        genvar gpr;
+        genvar gpc;
+        for (gpr = 0; gpr < `GRID_LEN; gpr++) begin: gen_pass_row
+        for (gpc = 0; gpc < `GRID_LEN; gpc++) begin: gen_pass_col
+            assign rowmaj_passbaks_packed[gpr*`GRID_LEN+gpc] = rowmaj_passbaks[gpr][gpc];
+            assign rowmaj_passfwds_packed[gpr*`GRID_LEN+gpc] = rowmaj_passfwds[gpr][gpc];
+        end
+        end
         case (GENPATH)
         ROW_MAJOR: begin
-            assign tvs_passbaks = {>>{{>>{rowmaj_passbaks}}}};
-            assign tvs_passfwds = {>>{{>>{rowmaj_passfwds}}}};
+            assign tvs_passbaks = rowmaj_passbaks_packed;
+            assign tvs_passfwds = rowmaj_passfwds_packed;
         end
         BLOCK_COL: begin
-            wire [`GRID_ORD-1:0] _rowmaj_passbaks [`GRID_BGA-1:0] = {>>{{>>{rowmaj_passbaks}}}};
-            wire [`GRID_ORD-1:0] _rowmaj_passfwds [`GRID_BGA-1:0] = {>>{{>>{rowmaj_passfwds}}}};
-            for (genvar i = 0; i < `GRID_BGA; i++) begin
-                const int unsigned tvsidx = (i%`GRID_ORD) + (i/`GRID_ORD*`GRID_ORD);
-                assign tvs_passbaks[i*`GRID_ORD+:`GRID_ORD] = _rowmaj_passbaks[tvsidx];
-                assign tvs_passfwds[i*`GRID_ORD+:`GRID_ORD] = _rowmaj_passfwds[tvsidx];
+            genvar gpbci;
+            for (gpbci = 0; gpbci < `GRID_BGA; gpbci++) begin: gen_genpath_blockcol
+                const int unsigned tvsidx = (gpbci%`GRID_ORD) + (gpbci/`GRID_ORD*`GRID_ORD);
+                assign tvs_passbaks[gpbci*`GRID_ORD+:`GRID_ORD] = rowmaj_passbaks_packed[tvsidx*`GRID_ORD+:`GRID_ORD];
+                assign tvs_passfwds[gpbci*`GRID_ORD+:`GRID_ORD] = rowmaj_passfwds_packed[tvsidx*`GRID_ORD+:`GRID_ORD];
             end
         end
         endcase
     endgenerate
 
-    // generate [OR] modules for [tile.occupiedmask] inputs:
+    // generate [OR] modules for [tile.valcannotbe] inputs:
     generate
-        for (genvar i = 0; i < `GRID_LEN; i++) begin
+        genvar vcbi;
+        for (vcbi = 0; vcbi < `GRID_LEN; vcbi++) begin: gen_alreadyhas
             wor [`GRID_LEN-1:0] _rowalreadyhas;
             wor [`GRID_LEN-1:0] _colalreadyhas;
             wor [`GRID_LEN-1:0] _blkalreadyhas;
-            for (genvar j = 0; j < `GRID_LEN; j++) begin
-                assign _rowalreadyhas = rowmajorvalues[i][j];
-                assign _colalreadyhas = colmajorvalues[i][j];
-                assign _blkalreadyhas = blkmajorvalues[i][j];
+            genvar vcbj;
+            for (vcbj = 0; vcbj < `GRID_LEN; vcbj++) begin: gen_wor_alreadyhas
+                assign _rowalreadyhas = rowmajorvalues[vcbi][vcbj];
+                assign _colalreadyhas = colmajorvalues[vcbi][vcbj];
+                assign _blkalreadyhas = blkmajorvalues[vcbi][vcbj];
             end
-            assign rowalreadyhas[i] = _rowalreadyhas;
-            assign colalreadyhas[i] = _colalreadyhas;
-            assign blkalreadyhas[i] = _blkalreadyhas;
+            assign rowalreadyhas[vcbi] = _rowalreadyhas;
+            assign colalreadyhas[vcbi] = _colalreadyhas;
+            assign blkalreadyhas[vcbi] = _blkalreadyhas;
         end
     endgenerate
 
     // loop to map [rowmajorvalues] to [colmajorvalues]:
     // r and c are in terms of row-major-order. nothing convoluted.
     generate
-        for (genvar r = 0; r < `GRID_LEN; r++) begin // rows
-        for (genvar c = 0; c < `GRID_LEN; c++) begin // cols
+        genvar r;
+        genvar c;
+        for (r = 0; r < `GRID_LEN; r++) begin: gen_colmajorvalues_row // rows
+        for (c = 0; c < `GRID_LEN; c++) begin: gen_colmajorvalues_col // cols
             assign colmajorvalues[c][r] = rowmajorvalues[r][c];
         end // cols
         end // rows
@@ -169,8 +186,10 @@ module grid #(genpath_t GENPATH = BLOCK_COL)
 
     // loop to map [rowmajorvalues] to [blkmajorvalues]:
     generate
-        for (genvar b = 0; b < `GRID_LEN; b++) begin // rows
-        for (genvar i = 0; i < `GRID_LEN; i++) begin // cols
+        genvar b;
+        genvar i;
+        for (b = 0; b < `GRID_LEN; b++) begin: gen_blkmajorvalues_row // rows
+        for (i = 0; i < `GRID_LEN; i++) begin: gen_blkmajorvalues_col // cols
             // some test ideas:
             // 0,0->0,0
             // 0,3->1,0

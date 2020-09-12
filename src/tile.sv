@@ -3,7 +3,7 @@
 /**
  *
  */
-module tile #()
+module tile
 (
     input   clock,
     input   reset,
@@ -18,22 +18,23 @@ module tile #()
     output reg [`GRID_LEN-1:0] value        // 1hot. this tile's current value.
 );
     enum logic [6:0] {
-        RESET   = 1 << 0, // reset internal registers.
-        WAITING = 1 << 1, // wait until [myturn].
-        INCRIDX = 1 << 2, // upward barrel shift of rowbias index.
-        RQROWBS = 1 << 3, // request row-bias with new index.
-        LDROWBS = 1 << 4, // catch and hold the value of rowbias' reply.
-        PASSBAK = 1 << 5, // nothing works- signal a backtrack request.
-        PASSFWD = 1 << 6  // something worked- signal to continue brute-force alg.
+        RESET   = 7'b1 << 0, // reset internal registers.
+        WAITING = 7'b1 << 1, // wait until [myturn].
+        INCRIDX = 7'b1 << 2, // upward barrel shift of rowbias index.
+        RQROWBS = 7'b1 << 3, // request row-bias with new index.
+        LDROWBS = 7'b1 << 4, // catch and hold the value of rowbias' reply.
+        PASSBAK = 7'b1 << 5, // nothing works- signal a backtrack request.
+        PASSFWD = 7'b1 << 6  // something worked- signal to continue brute-force alg.
     } state;
+    reg [`GRID_LEN:0] index;
 
     // moore-style outputs:
     assign passbak      = (state == PASSBAK);
     assign passfwd      = (state == PASSFWD);
     assign rq_valtotry  = (state == RQROWBS);
-
-    reg [`GRID_LEN:0] index;
-    assign biasidx = (state == RQROWBS) ? index[0+:`GRID_LEN] : 'b0;
+    assign biasidx      = (state == RQROWBS)
+        ? index[0+:`GRID_LEN]
+        : {`GRID_LEN{1'b0}}; // cannot use `x` since these get OR'ed together for tiles in the same row..
 
     // always-block for [index]:
     always_ff @(posedge clock) begin: tile_index
@@ -53,8 +54,8 @@ module tile #()
     // always-block for [value]:
     always_ff @(posedge clock) begin: tile_value
         case (state)
-            RESET: value <= 'b0;
-            LDROWBS: value <= index[`GRID_LEN] ? 'b0 : valtotry;
+            RESET: value <= 0;
+            LDROWBS: value <= index[`GRID_LEN] ? {`GRID_LEN{1'b0}} : valtotry;
         endcase
     end
 

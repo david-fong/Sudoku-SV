@@ -30,12 +30,11 @@ module sudoku
 //    output [6:0] HEX1,
 //    output [6:0] HEX0
 );
-
     wire done;
     wire success;
 
     // instantiate the grid module:
-    grid #() GRIDx(
+    grid GRIDx(
         .clock(CLOCK_50),
         .reset(~KEY[0]),
         .start(~KEY[1]),
@@ -55,6 +54,4 @@ module sudoku
             HEX5 <= 7'b0_11_1_11_1; // '-'
         end
     end
-
-endmodule : sudoku
-
+endmodule

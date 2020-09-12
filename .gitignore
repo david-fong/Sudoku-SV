@@ -8,20 +8,21 @@
 modelsim.ini
 transcript
 *.mpf
-*.mti
+*.cr.mti
+*.wlf
 *.bak
 modelsim/work/
 
 # quartus:
-*.wlf
-*.qdb
-*.qpg
-*.qtl
-*.qws
-*.qpf
+quartus/
+# *.qdb
+# *.qpg
+# *.qtl
+# *.qws
+# *.qpf
 *.qsf
-db/
-incremental_db/
-simulation/
-output_files/
+# db/
+# incremental_db/
+# simulation/
+# output/
 

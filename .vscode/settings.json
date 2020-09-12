@@ -1,4 +1,16 @@
 {
+    "files.exclude": {
+        // generic excludes:
+        "modelsim/work/": true,
+        "modelsim/*.{cr.mti,wlf}": true,
+        "quartus/{db,incremental_db,output}/": true,
+    },
+    "search.exclude": {
+        "**/node_modules": true,
+        "**/bower_components": true,
+        "**/*.code-search": true,
+        "{**/.templates/,**/tsconfig.json}": false,
+    },
     "files.associations": {
         "*.svh": "verilog"
     },
