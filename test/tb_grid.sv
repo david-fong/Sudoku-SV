@@ -1,5 +1,5 @@
 `include "../src/grid_dimensions.svh"
-`define MAX_CLOCK_CYCLES 20000
+`define MAX_CLOCK_CYCLES 22500
 
 /**
  *
@@ -8,9 +8,10 @@ module tb_grid;
     reg clock;
     reg reset;
     reg start;
-    wire done;
-    wire success;
-    grid #() DUT(.*);
+    wire rowmajor_done, rowmajor_success;
+    wire blockcol_done, blockcol_success;
+    grid #(0) DUT_rowmajor(.done(rowmajor_done), .success(rowmajor_success), .start(start), .*);
+    grid #(1) DUT_blockcol(.done(blockcol_done), .success(blockcol_success), .start(rowmajor_done), .*);
 
     // clock process:
     initial begin: tb_clock
@@ -37,12 +38,15 @@ module tb_grid;
         #2;
         start = 0;
 
-        @(posedge done);
-        $display("=========================");
-        $display("          DONE!          ");
-        $display("=========================");
-        DUT.print();
-        #10;
+        @(posedge rowmajor_done);
+        $display("\n=========================");
+        $display(  "        ROW_MAJOR        ");
+        DUT_rowmajor.print();
+
+        @(posedge blockcol_done);
+        $display("\n=========================");
+        $display(  "        BLOCK_COL        ");
+        DUT_blockcol.print();
         $stop;
-    end: main
+    end
 endmodule

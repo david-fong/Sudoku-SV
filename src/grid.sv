@@ -1,9 +1,14 @@
 `include "grid_dimensions.svh"
 
+typedef enum {
+    ROW_MAJOR,
+    BLOCK_COL
+} genpath_t;
+
 /**
  * a network of tiles that form a sudoku grid.
  */
-module grid #()
+module grid #(genpath_t GENPATH = BLOCK_COL)
 (
     input clock,
     input reset,
@@ -25,18 +30,21 @@ module grid #()
         START        = 1 << 1, //
         WAIT         = 1 << 2, //
         DONE_SUCCESS = 1 << 3, //
-        DONE_FAILURE = 1 << 4 //
+        DONE_FAILURE = 1 << 4  //
     } state;
+    assign done = (state == DONE_SUCCESS) | (state == DONE_FAILURE);
+    assign success = (state == DONE_SUCCESS);
 
     // chaining and success signals:
     wire [`GRID_AREA-1:0] myturns;
-    wire passbaks [`GRID_LEN-1:0][`GRID_LEN-1:0];
-    wire passfwds [`GRID_LEN-1:0][`GRID_LEN-1:0];
-    wire [`GRID_AREA-1:0] _passbaks = {>>{{>>{passbaks}}}};
-    wire [`GRID_AREA-1:0] _passfwds = {>>{{>>{passfwds}}}};
-    assign myturns = {1'b0, _passbaks[`GRID_AREA-1:1]} | {_passfwds[`GRID_AREA-2:0], (state==START)};
-    assign done = (state == DONE_SUCCESS) | (state == DONE_FAILURE);
-    assign success = (state == DONE_SUCCESS);
+    wire rowmaj_passbaks [`GRID_LEN-1:0][`GRID_LEN-1:0];
+    wire rowmaj_passfwds [`GRID_LEN-1:0][`GRID_LEN-1:0];
+
+    wire [`GRID_AREA-1:0] tvs_passbaks;
+    wire [`GRID_AREA-1:0] tvs_passfwds;
+    assign myturns = {
+        1'b0, tvs_passbaks[`GRID_AREA-1:1]} |
+        {tvs_passfwds[`GRID_AREA-2:0], (state==START)};
 
     // [rowbias] signals:
     wire [`GRID_LEN-1:0] biasidx [`GRID_LEN-1:0][`GRID_LEN-1:0];
@@ -53,6 +61,7 @@ module grid #()
     wire [`GRID_LEN-1:0] blkalreadyhas  [`GRID_LEN-1:0];
 
 
+    // FSM:
     always_ff @(posedge clock) begin: grid_fsm
         if (reset) begin
             state <= RESET;
@@ -61,8 +70,8 @@ module grid #()
             RESET: state <= start ? START : RESET;
             START: state <= WAIT;
             WAIT: begin state <= (
-                _passbaks[0] ? DONE_FAILURE
-                : _passfwds[`GRID_AREA-1] ? DONE_SUCCESS
+                tvs_passbaks[0] ? DONE_FAILURE
+                : tvs_passfwds[`GRID_AREA-1] ? DONE_SUCCESS
                 : WAIT); end
             DONE_SUCCESS: state <= DONE_SUCCESS;
             DONE_FAILURE: state <= DONE_FAILURE;
@@ -96,8 +105,8 @@ module grid #()
                 .clock,
                 .reset,
                 .myturn(myturns[i]),
-                .passbak(passbaks[r][c]),
-                .passfwd(passfwds[r][c]),
+                .passbak(rowmaj_passbaks[r][c]),
+                .passfwd(rowmaj_passfwds[r][c]),
                 .biasidx(biasidx[r][c]),
                 .rq_valtotry(rq_valtotry[r][c]),
                 .valtotry(valtotry[r]),
@@ -110,6 +119,25 @@ module grid #()
             );
         end // cols
         end // rows
+    endgenerate
+
+    // traversal path:
+    generate
+        case (GENPATH)
+        ROW_MAJOR: begin
+            assign tvs_passbaks = {>>{{>>{rowmaj_passbaks}}}};
+            assign tvs_passfwds = {>>{{>>{rowmaj_passfwds}}}};
+        end
+        BLOCK_COL: begin
+            wire [`GRID_ORD-1:0] _rowmaj_passbaks [`GRID_BGA-1:0] = {>>{{>>{rowmaj_passbaks}}}};
+            wire [`GRID_ORD-1:0] _rowmaj_passfwds [`GRID_BGA-1:0] = {>>{{>>{rowmaj_passfwds}}}};
+            for (genvar i = 0; i < `GRID_BGA; i++) begin
+                const int unsigned tvsidx = (i%`GRID_ORD) + (i/`GRID_ORD*`GRID_ORD);
+                assign tvs_passbaks[i*`GRID_ORD+:`GRID_ORD] = _rowmaj_passbaks[tvsidx];
+                assign tvs_passfwds[i*`GRID_ORD+:`GRID_ORD] = _rowmaj_passfwds[tvsidx];
+            end
+        end
+        endcase
     endgenerate
 
     // generate [OR] modules for [tile.occupiedmask] inputs:

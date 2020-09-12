@@ -48,7 +48,7 @@ module tile #()
                 index[   `GRID_LEN]  // wrap the highest bit
             };
         endcase
-    end: tile_index
+    end
 
     // always-block for [value]:
     always_ff @(posedge clock) begin: tile_value
@@ -56,8 +56,7 @@ module tile #()
             RESET: value <= 'b0;
             LDROWBS: value <= index[`GRID_LEN] ? 'b0 : valtotry;
         endcase
-    end: tile_value
-
+    end
 
 
     // STATE MACHINE:
@@ -87,6 +86,5 @@ module tile #()
             PASSBAK: state <= WAITING;
             PASSFWD: state <= WAITING;
         endcase end
-    end: tile_fsm
-
-endmodule : tile
+    end
+endmodule
