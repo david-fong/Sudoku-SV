@@ -10,6 +10,7 @@ module grid #()
     input start,
     output done,
     output success
+    // TODO.design an interface to request and serially receive the solution data.
 );
     // get block number given a row number and column number:
     function int unsigned blockof (
@@ -34,22 +35,22 @@ module grid #()
     wire [`GRID_AREA-1:0] _passbaks = {>>{{>>{passbaks}}}};
     wire [`GRID_AREA-1:0] _passfwds = {>>{{>>{passfwds}}}};
     assign myturns = {1'b0, _passbaks[`GRID_AREA-1:1]} | {_passfwds[`GRID_AREA-2:0], (state==START)};
-    assign done = (state == DONE_SUCCESS) || (state == DONE_FAILURE);
+    assign done = (state == DONE_SUCCESS) | (state == DONE_FAILURE);
     assign success = (state == DONE_SUCCESS);
 
     // [rowbias] signals:
-    wire [`GRID_LEN-1:0] biasidx [`GRID_LEN][`GRID_LEN];
+    wire [`GRID_LEN-1:0] biasidx [`GRID_LEN-1:0][`GRID_LEN-1:0];
     wire [`GRID_LEN -1:0][`GRID_LEN-1:0] rq_valtotry;
-    wire [`GRID_LEN -1:0] valtotry [`GRID_LEN];
+    wire [`GRID_LEN -1:0] valtotry [`GRID_LEN-1:0];
 
     // occupancy signals:
     // [values] is in row-major order.
-    wire [`GRID_LEN-1:0][`GRID_LEN-1:0] rowmajorvalues [`GRID_LEN];
-    wire [`GRID_LEN-1:0][`GRID_LEN-1:0] colmajorvalues [`GRID_LEN];
-    wire [`GRID_LEN-1:0][`GRID_LEN-1:0] blkmajorvalues [`GRID_LEN];
-    wire [`GRID_LEN-1:0] rowalreadyhas [`GRID_LEN];
-    wire [`GRID_LEN-1:0] colalreadyhas [`GRID_LEN];
-    wire [`GRID_LEN-1:0] blkalreadyhas [`GRID_LEN];
+    wire [`GRID_LEN-1:0] rowmajorvalues [`GRID_LEN-1:0][`GRID_LEN-1:0];
+    wire [`GRID_LEN-1:0] colmajorvalues [`GRID_LEN-1:0][`GRID_LEN-1:0];
+    wire [`GRID_LEN-1:0] blkmajorvalues [`GRID_LEN-1:0][`GRID_LEN-1:0];
+    wire [`GRID_LEN-1:0] rowalreadyhas  [`GRID_LEN-1:0];
+    wire [`GRID_LEN-1:0] colalreadyhas  [`GRID_LEN-1:0];
+    wire [`GRID_LEN-1:0] blkalreadyhas  [`GRID_LEN-1:0];
 
 
     always_ff @(posedge clock) begin: grid_fsm
@@ -60,8 +61,8 @@ module grid #()
             RESET: state <= start ? START : RESET;
             START: state <= WAIT;
             WAIT: begin state <= (
-                  passbaks[           0] ? DONE_FAILURE
-                : passfwds[`GRID_AREA-1] ? DONE_SUCCESS
+                _passbaks[0] ? DONE_FAILURE
+                : _passfwds[`GRID_AREA-1] ? DONE_SUCCESS
                 : WAIT); end
             DONE_SUCCESS: state <= DONE_SUCCESS;
             DONE_FAILURE: state <= DONE_FAILURE;
@@ -113,10 +114,18 @@ module grid #()
 
     // generate [OR] modules for [tile.occupiedmask] inputs:
     generate
-        for (genvar out = 0; out < `GRID_LEN; out++) begin
-            assign rowalreadyhas[out] = /*or:*/|rowmajorvalues[out];
-            assign colalreadyhas[out] = /*or:*/|colmajorvalues[out];
-            assign blkalreadyhas[out] = /*or:*/|blkmajorvalues[out];
+        for (genvar i = 0; i < `GRID_LEN; i++) begin
+            wor [`GRID_LEN-1:0] _rowalreadyhas;
+            wor [`GRID_LEN-1:0] _colalreadyhas;
+            wor [`GRID_LEN-1:0] _blkalreadyhas;
+            for (genvar j = 0; j < `GRID_LEN; j++) begin
+                assign _rowalreadyhas = rowmajorvalues[i][j];
+                assign _colalreadyhas = colmajorvalues[i][j];
+                assign _blkalreadyhas = blkmajorvalues[i][j];
+            end
+            assign rowalreadyhas[i] = _rowalreadyhas;
+            assign colalreadyhas[i] = _colalreadyhas;
+            assign blkalreadyhas[i] = _blkalreadyhas;
         end
     endgenerate
 

@@ -1,27 +1,28 @@
 `include "grid_dimensions.svh"
+`define MAX_CLOCK_CYCLES 10000
 
 /**
  *
  */
 module tb_grid;
-
-    // signal mirrors:
     reg clock;
     reg reset;
     reg start;
     wire done;
     wire success;
-
-    // device under test:
     grid #() DUT(.*);
 
     // clock process:
-    initial begin: clock_block
+    initial begin: tb_clock
         clock = 0;
         forever begin clock = ~clock; #1; end
     end
     // emergency break:
-    initial begin: emergency_break #60; $stop; end
+    initial forever begin: emergency_break
+        #(2 * `MAX_CLOCK_CYCLES);
+        $display("the testbench hit the emergency break.");
+        $stop;
+    end
 
     // main process:
     initial begin: main
@@ -35,8 +36,12 @@ module tb_grid;
         start = 1;
         #2;
         start = 0;
-        @(posedge done) $display("done!");
-        $display;
-        //$stop;
+
+        @(posedge done);
+        $display("=======================");
+        $display("         DONE!         ");
+        $display("=======================");
+        #10;
+        $stop;
     end: main
 endmodule
