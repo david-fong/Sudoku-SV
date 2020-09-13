@@ -10,14 +10,14 @@ typedef enum {
  */
 module grid
 #(
-    parameter genpath_t GENPATH = BLOCK_COL,
-    parameter int LFSR_WIDTH = 8,
-    parameter bit [LFSR_WIDTH-1:0] LFSR_TAPS = 8'b10111000
+    parameter genpath_t            GENPATH    = BLOCK_COL,
+    parameter int                  LFSR_WIDTH = 8,
+    parameter bit [LFSR_WIDTH-1:0] LFSR_TAPS  = 8'b10111000
 )(
-    input clock,
-    input reset,
-    input start,
-    input [LFSR_WIDTH-1:0] seed,
+    input  clock,
+    input  reset,
+    input  start,
+    input  [LFSR_WIDTH-1:0] seed,
     output done,
     output success
     // TODO.design an interface to request and serially receive the solution data.
@@ -44,8 +44,8 @@ module grid
 
     // chaining and success signals:
     wire [`GRID_AREA-1:0] myturns;
-    wire rowmaj_passbaks [`GRID_LEN-1:0][`GRID_LEN-1:0];
-    wire rowmaj_passfwds [`GRID_LEN-1:0][`GRID_LEN-1:0];
+    wire row_passbaks [`GRID_LEN-1:0][`GRID_LEN-1:0];
+    wire row_passfwds [`GRID_LEN-1:0][`GRID_LEN-1:0];
 
     wire [`GRID_AREA-1:0] tvs_passbaks;
     wire [`GRID_AREA-1:0] tvs_passfwds;
@@ -80,7 +80,7 @@ module grid
 
     // STATE MACHINE:
     always_ff @(posedge clock) begin: grid_state
-        if (reset) begin
+        if (reset) begin;
             state <= RESET;
         end
         else begin case (state)
@@ -140,8 +140,8 @@ module grid
                 .clock,
                 .reset,
                 .myturn(myturns[tli]),
-                .passbak(rowmaj_passbaks[tlr][tlc]),
-                .passfwd(rowmaj_passfwds[tlr][tlc]),
+                .passbak(row_passbaks[tlr][tlc]),
+                .passfwd(row_passfwds[tlr][tlc]),
                 .biasidx(biasidx[tlr][tlc]),
                 .rq_valtotry(rq_valtotry[tlr][tlc]),
                 .valtotry(valtotry[tlr]),
@@ -158,28 +158,35 @@ module grid
 
     // traversal path:
     generate
-        wire [`GRID_AREA-1:0] rowmaj_passbaks_packed;
-        wire [`GRID_AREA-1:0] rowmaj_passfwds_packed;
-        genvar gpr;
-        genvar gpc;
-        for (gpr = 0; gpr < `GRID_LEN; gpr++) begin: gen_pass_row
-        for (gpc = 0; gpc < `GRID_LEN; gpc++) begin: gen_pass_col
-            assign rowmaj_passbaks_packed[gpr*`GRID_LEN+gpc] = rowmaj_passbaks[gpr][gpc];
-            assign rowmaj_passfwds_packed[gpr*`GRID_LEN+gpc] = rowmaj_passfwds[gpr][gpc];
-        end
-        end
         case (GENPATH)
         ROW_MAJOR: begin
-            assign tvs_passbaks = rowmaj_passbaks_packed;
-            assign tvs_passfwds = rowmaj_passfwds_packed;
+            genvar gpr, gpc;
+            for (gpr = 0; gpr < `GRID_LEN; gpr++) begin: genpath_row
+            for (gpc = 0; gpc < `GRID_LEN; gpc++) begin: genpath_col
+                assign tvs_passbaks[gpr*`GRID_LEN+gpc] = row_passbaks[gpr][(gpr%2==0) ? gpc : `GRID_LEN-1-gpc];
+                assign tvs_passfwds[gpr*`GRID_LEN+gpc] = row_passfwds[gpr][(gpr%2==0) ? gpc : `GRID_LEN-1-gpc];
+            end; end;
         end
         BLOCK_COL: begin
-            genvar gpbci;
-            for (gpbci = 0; gpbci < `GRID_BGA; gpbci++) begin: gen_genpath_blockcol
-                const int unsigned tvsidx = (gpbci%`GRID_ORD) + (gpbci/`GRID_ORD*`GRID_ORD);
-                assign tvs_passbaks[gpbci*`GRID_ORD+:`GRID_ORD] = rowmaj_passbaks_packed[tvsidx*`GRID_ORD+:`GRID_ORD];
-                assign tvs_passfwds[gpbci*`GRID_ORD+:`GRID_ORD] = rowmaj_passfwds_packed[tvsidx*`GRID_ORD+:`GRID_ORD];
-            end
+            // for (gpbci = 0; gpbci < `GRID_BGA; gpbci++) begin: gen_genpath_blockcol
+            //     const int unsigned tvsidx = (gpbci%`GRID_ORD) + (gpbci/`GRID_ORD*`GRID_ORD);
+            //     assign tvs_passbaks[gpbci*`GRID_ORD+:`GRID_ORD] = row_passbaks_packed[tvsidx*`GRID_ORD+:`GRID_ORD];
+            //     assign tvs_passfwds[gpbci*`GRID_ORD+:`GRID_ORD] = row_passfwds_packed[tvsidx*`GRID_ORD+:`GRID_ORD];
+            // end
+            // TODO implement zigzagging blockcol traversal
+            genvar rmr, rmc;
+            for (rmr = 0; rmr < `GRID_LEN; rmr++) begin: genpath_row
+            for (rmc = 0; rmc < `GRID_LEN; rmc++) begin: genpath_col
+                int unsigned gpr = (rmc / `GRID_ORD) + ((rmr % `GRID_ORD) * `GRID_ORD);
+                int unsigned gpc = (rmc % `GRID_ORD);
+                initial begin
+                if ((rmc / `GRID_ORD) % 2 == 1) begin gpr = `GRID_LEN - 1 - gpr; end
+                if ((rmr%2==0) ^ ((rmc/`GRID_ORD)%2==0)) begin gpc = `GRID_ORD - 1 - gpc; end
+                gpc += (rmr / `GRID_ORD * `GRID_ORD);
+                end
+                assign tvs_passbaks[gpr*`GRID_LEN+gpc] = row_passbaks[rmr][rmc];
+                assign tvs_passfwds[gpr*`GRID_LEN+gpc] = row_passfwds[rmr][rmc];
+            end; end;
         end
         endcase
     endgenerate

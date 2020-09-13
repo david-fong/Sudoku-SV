@@ -11,8 +11,8 @@ module tb_grid;
     reg start;
     wire rowmajor_done, rowmajor_success;
     wire blockcol_done, blockcol_success;
-    grid #(.GENPATH(0)) DUT_rowmajor(.done(rowmajor_done), .success(rowmajor_success), .start(start), .*);
-    grid #(.GENPATH(1)) DUT_blockcol(.done(blockcol_done), .success(blockcol_success), .start(rowmajor_done), .*);
+    grid #(.GENPATH(0)) DUT_rowmajor(.done(rowmajor_done), .success(rowmajor_success), .*);
+    grid #(.GENPATH(1)) DUT_blockcol(.done(blockcol_done), .success(blockcol_success), .*);
 
     // clock process:
     initial begin: tb_clock
