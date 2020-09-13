@@ -7,11 +7,12 @@
 module tb_grid;
     reg clock;
     reg reset;
+    reg [7:0] seed = 8'b1;
     reg start;
     wire rowmajor_done, rowmajor_success;
     wire blockcol_done, blockcol_success;
-    grid #(0) DUT_rowmajor(.done(rowmajor_done), .success(rowmajor_success), .start(start), .*);
-    grid #(1) DUT_blockcol(.done(blockcol_done), .success(blockcol_success), .start(rowmajor_done), .*);
+    grid #(.GENPATH(0)) DUT_rowmajor(.done(rowmajor_done), .success(rowmajor_success), .start(start), .*);
+    grid #(.GENPATH(1)) DUT_blockcol(.done(blockcol_done), .success(blockcol_success), .start(rowmajor_done), .*);
 
     // clock process:
     initial begin: tb_clock
@@ -35,7 +36,7 @@ module tb_grid;
         reset = 0;
         #2;
         start = 1;
-        #2;
+        #60;
         start = 0;
 
         @(posedge rowmajor_done);

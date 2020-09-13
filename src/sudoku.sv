@@ -20,8 +20,8 @@
 module sudoku
 (
     input CLOCK_50,
-    input [3:0] KEY,
-    input [9:0] SW,
+    input  [3:0] KEY,
+    input  [9:0] SW,
     output [9:0] LEDR,
     output reg [6:0] HEX5
 //    output [6:0] HEX4,
@@ -37,6 +37,7 @@ module sudoku
     grid GRIDx(
         .clock(CLOCK_50),
         .reset(~KEY[0]),
+        .seed(SW[0+:8]),
         .start(~KEY[1]),
         .done,
         .success

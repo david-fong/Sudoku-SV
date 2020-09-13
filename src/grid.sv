@@ -8,11 +8,16 @@ typedef enum {
 /**
  * a network of tiles that form a sudoku grid.
  */
-module grid #(genpath_t GENPATH = BLOCK_COL)
-(
+module grid
+#(
+    parameter genpath_t GENPATH = BLOCK_COL,
+    parameter int LFSR_WIDTH = 8,
+    parameter bit [LFSR_WIDTH-1:0] LFSR_TAPS = 8'b10111000
+)(
     input clock,
     input reset,
     input start,
+    input [LFSR_WIDTH-1:0] seed,
     output done,
     output success
     // TODO.design an interface to request and serially receive the solution data.
@@ -32,6 +37,8 @@ module grid #(genpath_t GENPATH = BLOCK_COL)
         DONE_SUCCESS = 5'b1 << 3, //
         DONE_FAILURE = 5'b1 << 4  //
     } state;
+    int unsigned ready_countdown;
+
     assign done = (state == DONE_SUCCESS) | (state == DONE_FAILURE);
     assign success = (state == DONE_SUCCESS);
 
@@ -48,8 +55,8 @@ module grid #(genpath_t GENPATH = BLOCK_COL)
 
     // [rowbias] signals:
     wire [`GRID_LEN-1:0] biasidx [`GRID_LEN-1:0][`GRID_LEN-1:0];
-    wire [`GRID_LEN -1:0][`GRID_LEN-1:0] rq_valtotry;
-    wire [`GRID_LEN -1:0] valtotry [`GRID_LEN-1:0];
+    wire [`GRID_LEN-1:0][`GRID_LEN-1:0] rq_valtotry;
+    wire [`GRID_LEN-1:0] valtotry [`GRID_LEN-1:0];
 
     // occupancy signals:
     // [values] is in row-major order.
@@ -61,13 +68,23 @@ module grid #(genpath_t GENPATH = BLOCK_COL)
     wire [`GRID_LEN-1:0] blkalreadyhas  [`GRID_LEN-1:0];
 
 
-    // FSM:
-    always_ff @(posedge clock) begin: grid_fsm
+    // reset procedure:
+    always_ff @(posedge clock) begin: grid_done_reset
+        if (reset) begin
+            ready_countdown <= `GRID_LEN * 3; // See `reset_chain` for rowbias modules.
+        end
+        else if (ready_countdown > 0) begin
+            ready_countdown--;
+        end
+    end
+
+    // STATE MACHINE:
+    always_ff @(posedge clock) begin: grid_state
         if (reset) begin
             state <= RESET;
         end
         else begin case (state)
-            RESET: state <= start ? START : RESET;
+            RESET: state <= ((ready_countdown == 0) & start) ? START : RESET;
             START: state <= WAIT;
             WAIT: begin state <= (
                 tvs_passbaks[0] ? DONE_FAILURE
@@ -76,11 +93,24 @@ module grid #(genpath_t GENPATH = BLOCK_COL)
             DONE_SUCCESS: state <= DONE_SUCCESS;
             DONE_FAILURE: state <= DONE_FAILURE;
         endcase end
-    end: grid_fsm
+    end
 
 
     // generate [rowbias] modules:
     generate
+        wire [LFSR_WIDTH-1:0] random;
+        lfsr #(
+            .WIDTH(LFSR_WIDTH),
+            .TAPS(LFSR_TAPS)
+        ) LFSRx(
+            .advance(state == RESET),
+            .out(random),
+            .*
+        );
+        reg [`GRID_LEN-1:0] reset_chain;
+        always_ff @(posedge clock) begin
+            reset_chain <= {reset_chain[`GRID_LEN-2:0],reset};
+        end
         genvar rbr;
         for (rbr = 0; rbr < `GRID_LEN; rbr++) begin: gen_rowbias // rows
             wor [`GRID_LEN-1:0] rqindex;
@@ -88,12 +118,13 @@ module grid #(genpath_t GENPATH = BLOCK_COL)
             for (rbc = 0; rbc < `GRID_LEN; rbc++) begin: gen_wor_rqindex
                 assign rqindex = biasidx[rbr][rbc];
             end
-            rowbias /*#()*/ ROWBIASx(
+            rowbias #(.RAND_WIDTH(LFSR_WIDTH)) ROWBIASx(
                 .clock,
-                .reset,
-                .update( /*or:*/|rq_valtotry[rbr]),
-                .rqindex(/*or:*/rqindex),
-                .busvalue(valtotry[rbr])
+                .reset(reset_chain[rbr]),
+                .random,
+                .update(|rq_valtotry[rbr]),
+                .rqindex(rqindex),
+                .valtotry(valtotry[rbr])
             );
         end // rows
     endgenerate
