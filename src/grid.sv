@@ -39,7 +39,7 @@ module grid
     } state;
     int unsigned ready_countdown;
 
-    assign done = (state == DONE_SUCCESS) | (state == DONE_FAILURE);
+    assign done    = (state == DONE_SUCCESS) | (state == DONE_FAILURE);
     assign success = (state == DONE_SUCCESS);
 
     // chaining and success signals:
@@ -49,9 +49,8 @@ module grid
 
     wire [`GRID_AREA-1:0] tvs_passbaks;
     wire [`GRID_AREA-1:0] tvs_passfwds;
-    assign myturns = {
-        1'b0, tvs_passbaks[`GRID_AREA-1:1]} |
-        {tvs_passfwds[`GRID_AREA-2:0], (state==START)};
+    assign myturns = {1'b0, tvs_passbaks[`GRID_AREA-1:1]}
+        | {tvs_passfwds[`GRID_AREA-2:0], (state==START)};
 
     // [rowbias] signals:
     wire [`GRID_LEN-1:0] biasidx [`GRID_LEN-1:0][`GRID_LEN-1:0];
@@ -131,9 +130,8 @@ module grid
 
     // generate [tile] modules:
     generate
-        genvar tlr;
+        genvar tlr, tlc;
         for (tlr = 0; tlr < `GRID_LEN; tlr++) begin: gen_tile_row // rows
-        genvar tlc;
         for (tlc = 0; tlc < `GRID_LEN; tlc++) begin: gen_tile_col // cols
             int unsigned tli = (tlr * `GRID_LEN) + tlc;
             tile /*#()*/ TILEx(
@@ -161,31 +159,37 @@ module grid
         case (GENPATH)
         ROW_MAJOR: begin
             genvar gpr, gpc;
-            for (gpr = 0; gpr < `GRID_LEN; gpr++) begin: genpath_row
-            for (gpc = 0; gpc < `GRID_LEN; gpc++) begin: genpath_col
-                assign tvs_passbaks[gpr*`GRID_LEN+gpc] = row_passbaks[gpr][(gpr%2==0) ? gpc : `GRID_LEN-1-gpc];
-                assign tvs_passfwds[gpr*`GRID_LEN+gpc] = row_passfwds[gpr][(gpr%2==0) ? gpc : `GRID_LEN-1-gpc];
+            for (gpr = 0; gpr < `GRID_LEN; gpr++) begin: genpath_rowmajor_row
+            for (gpc = 0; gpc < `GRID_LEN; gpc++) begin: genpath_rowmajor_col
+                int col = ((gpr % 2) == 0) ? gpc : (`GRID_LEN-1-gpc);
+                assign tvs_passbaks[(gpr*`GRID_LEN)+gpc] = row_passbaks[gpr][col];
+                assign tvs_passfwds[(gpr*`GRID_LEN)+gpc] = row_passfwds[gpr][col];
+                initial $display("i%d,r%2h,c%2h",(gpr*`GRID_LEN)+gpc,gpr,col);
             end; end;
         end
         BLOCK_COL: begin
-            // for (gpbci = 0; gpbci < `GRID_BGA; gpbci++) begin: gen_genpath_blockcol
-            //     const int unsigned tvsidx = (gpbci%`GRID_ORD) + (gpbci/`GRID_ORD*`GRID_ORD);
-            //     assign tvs_passbaks[gpbci*`GRID_ORD+:`GRID_ORD] = row_passbaks_packed[tvsidx*`GRID_ORD+:`GRID_ORD];
-            //     assign tvs_passfwds[gpbci*`GRID_ORD+:`GRID_ORD] = row_passfwds_packed[tvsidx*`GRID_ORD+:`GRID_ORD];
-            // end
-            // TODO implement zigzagging blockcol traversal
-            genvar rmr, rmc;
-            for (rmr = 0; rmr < `GRID_LEN; rmr++) begin: genpath_row
-            for (rmc = 0; rmc < `GRID_LEN; rmc++) begin: genpath_col
-                int unsigned gpr = (rmc / `GRID_ORD) + ((rmr % `GRID_ORD) * `GRID_ORD);
-                int unsigned gpc = (rmc % `GRID_ORD);
+            genvar gpr, gpc;
+            for (gpr = 0; gpr < `GRID_LEN; gpr++) begin: genpath_blockcol_row
+            for (gpc = 0; gpc < `GRID_LEN; gpc++) begin: genpath_blockcol_col
+                int slice = (gpc % `GRID_ORD);
+                int row   = (gpc / `GRID_ORD) * `GRID_ORD;
+                int blkcol;
                 initial begin
-                if ((rmc / `GRID_ORD) % 2 == 1) begin gpr = `GRID_LEN - 1 - gpr; end
-                if ((rmr%2==0) ^ ((rmc/`GRID_ORD)%2==0)) begin gpc = `GRID_ORD - 1 - gpc; end
-                gpc += (rmr / `GRID_ORD * `GRID_ORD);
+                    if ( ((gpr%2)==0) == (((gpc/`GRID_ORD)%2)==0) ) begin
+                        slice = `GRID_ORD - 1 - slice;
+                    end;
+                    if ((gpc/`GRID_ORD)%2==0) begin
+                        row   += gpr / `GRID_ORD;
+                        blkcol = gpr % `GRID_ORD;
+                    end
+                    else begin
+                        row   += (`GRID_LEN-1-gpr) / `GRID_ORD;
+                        blkcol = (`GRID_LEN-1-gpr) % `GRID_ORD;
+                    end
+                // $display("r%2h,c%2h", row, (blkcol * `GRID_ORD) + slice);
                 end
-                assign tvs_passbaks[gpr*`GRID_LEN+gpc] = row_passbaks[rmr][rmc];
-                assign tvs_passfwds[gpr*`GRID_LEN+gpc] = row_passfwds[rmr][rmc];
+                assign tvs_passbaks[(gpr*`GRID_LEN)+gpc] = row_passbaks[row][(blkcol * `GRID_ORD) + slice];
+                assign tvs_passfwds[(gpr*`GRID_LEN)+gpc] = row_passfwds[row][(blkcol * `GRID_ORD) + slice];
             end; end;
         end
         endcase
