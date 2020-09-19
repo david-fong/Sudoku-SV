@@ -8,7 +8,7 @@ module tb_grid;
     reg clock;
     reg reset;
     reg [7:0] seed = 8'b1;
-    reg start;
+    reg rq_start;
     wire rowmajor_done, rowmajor_success;
     wire blockcol_done, blockcol_success;
     grid #(.GENPATH(0)) DUT_rowmajor(.done(rowmajor_done), .success(rowmajor_success), .*);
@@ -28,16 +28,16 @@ module tb_grid;
 
     // main process:
     initial begin: main
-        start = 0;
+        rq_start = 0;
         reset = 0;
         #1;
         reset = 1;
         #2;
         reset = 0;
         #2;
-        start = 1;
+        rq_start = 1;
         #60;
-        start = 0;
+        rq_start = 0;
 
         @(posedge rowmajor_done);
         $display("\n=========================");

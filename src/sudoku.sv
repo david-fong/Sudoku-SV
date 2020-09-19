@@ -38,7 +38,7 @@ module sudoku
         .clock(CLOCK_50),
         .reset(~KEY[0]),
         .seed(SW[0+:8]),
-        .start(~KEY[1]),
+        .rq_start(~KEY[1]),
         .done,
         .success
     );

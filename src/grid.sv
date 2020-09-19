@@ -16,7 +16,7 @@ module grid
 )(
     input  clock,
     input  reset,
-    input  start,
+    input  rq_start,
     input  [LFSR_WIDTH-1:0] seed,
     output done,
     output success
@@ -43,14 +43,13 @@ module grid
     assign success = (state == DONE_SUCCESS);
 
     // chaining and success signals:
-    wire [`GRID_AREA-1:0] myturns;
-    wire row_passbaks [`GRID_LEN-1:0][`GRID_LEN-1:0];
-    wire row_passfwds [`GRID_LEN-1:0][`GRID_LEN-1:0];
-
-    wire [`GRID_AREA-1:0] tvs_passbaks;
-    wire [`GRID_AREA-1:0] tvs_passfwds;
-    assign myturns = {1'b0, tvs_passbaks[`GRID_AREA-1:1]}
-        | {tvs_passfwds[`GRID_AREA-2:0], (state==START)};
+    wire pos_pbak [`GRID_LEN-1:0][`GRID_LEN-1:0];
+    wire pos_pfwd [`GRID_LEN-1:0][`GRID_LEN-1:0];
+    wire [`GRID_AREA-1:0] shift_pbak;
+    wire [`GRID_AREA-1:0] shift_pfwd;
+    wire [`GRID_AREA-1:0] tvs_pbak;
+    wire [`GRID_AREA-1:0] tvs_pfwd;
+    wire [`GRID_AREA-1:0] myturns = {tvs_pbak | tvs_pfwd};
 
     // [rowbias] signals:
     wire [`GRID_LEN-1:0] biasidx [`GRID_LEN-1:0][`GRID_LEN-1:0];
@@ -83,11 +82,11 @@ module grid
             state <= RESET;
         end
         else begin case (state)
-            RESET: state <= ((ready_countdown == 0) & start) ? START : RESET;
+            RESET: state <= ((ready_countdown == 0) & rq_start) ? START : RESET;
             START: state <= WAIT;
             WAIT: begin state <= (
-                tvs_passbaks[0] ? DONE_FAILURE
-                : tvs_passfwds[`GRID_AREA-1] ? DONE_SUCCESS
+                tvs_pbak[0] ? DONE_FAILURE
+                : tvs_pfwd[`GRID_AREA-1] ? DONE_SUCCESS
                 : WAIT); end
             DONE_SUCCESS: state <= DONE_SUCCESS;
             DONE_FAILURE: state <= DONE_FAILURE;
@@ -138,9 +137,9 @@ module grid
                 .clock,
                 .reset,
                 .myturn(myturns[tli]),
-                .passbak(row_passbaks[tlr][tlc]),
-                .passfwd(row_passfwds[tlr][tlc]),
-                .biasidx(biasidx[tlr][tlc]),
+                .passbak(pos_pbak[tlr][tlc]),
+                .passfwd(pos_pfwd[tlr][tlc]),
+                .biasidx( biasidx[tlr][tlc]),
                 .rq_valtotry(rq_valtotry[tlr][tlc]),
                 .valtotry(valtotry[tlr]),
                 .valcannotbe({
@@ -154,6 +153,16 @@ module grid
         end // rows
     endgenerate
 
+    // shifted pass signals bus:
+    generate
+        genvar pi;
+        for (pi = 0; pi < `GRID_AREA; pi++) begin: shift_pass_bus
+        // TODO.impl these usages of pos_pbak and pos_pfwd also need to be mapped according to the genpath.
+            assign shift_pbak[pi] = (pi == `GRID_AREA-1) ?  1'b0 : pos_pbak[(pi+1)/`GRID_LEN][(pi+1)%`GRID_LEN];
+            assign shift_pfwd[pi] = (pi == 0) ? (state == START) : pos_pfwd[(pi-1)/`GRID_LEN][(pi-1)%`GRID_LEN];
+        end
+    endgenerate
+
     // traversal path:
     generate
         case (GENPATH)
@@ -162,9 +171,9 @@ module grid
             for (gpr = 0; gpr < `GRID_LEN; gpr++) begin: genpath_rowmajor_row
             for (gpc = 0; gpc < `GRID_LEN; gpc++) begin: genpath_rowmajor_col
                 int col = ((gpr % 2) == 0) ? gpc : (`GRID_LEN-1-gpc);
-                assign tvs_passbaks[(gpr*`GRID_LEN)+gpc] = row_passbaks[gpr][col];
-                assign tvs_passfwds[(gpr*`GRID_LEN)+gpc] = row_passfwds[gpr][col];
-                initial $display("i%d,r%2h,c%2h",(gpr*`GRID_LEN)+gpc,gpr,col);
+                assign tvs_pbak[(gpr*`GRID_LEN)+gpc] = shift_pbak[(gpr*`GRID_LEN)+col];
+                assign tvs_pfwd[(gpr*`GRID_LEN)+gpc] = shift_pfwd[(gpr*`GRID_LEN)+col];
+                // initial $display("i%d, r%2h, c%2h",(gpr*`GRID_LEN)+gpc,gpr,col);
             end; end;
         end
         BLOCK_COL: begin
@@ -188,8 +197,8 @@ module grid
                     end
                 // $display("r%2h,c%2h", row, (blkcol * `GRID_ORD) + slice);
                 end
-                assign tvs_passbaks[(gpr*`GRID_LEN)+gpc] = row_passbaks[row][(blkcol * `GRID_ORD) + slice];
-                assign tvs_passfwds[(gpr*`GRID_LEN)+gpc] = row_passfwds[row][(blkcol * `GRID_ORD) + slice];
+                assign tvs_pbak[(gpr*`GRID_LEN)+gpc] = shift_pbak[(row*`GRID_LEN)+((blkcol*`GRID_ORD)+slice)];
+                assign tvs_pfwd[(gpr*`GRID_LEN)+gpc] = shift_pfwd[(row*`GRID_LEN)+((blkcol*`GRID_ORD)+slice)];
             end; end;
         end
         endcase
