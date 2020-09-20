@@ -5,6 +5,40 @@ typedef enum {
     BLOCK_COL
 } genpath_t;
 
+// get block number given a row number and column number:
+function int unsigned blockof (
+    int unsigned row,
+    int unsigned col
+);
+    return ((row/`GRID_ORD)*`GRID_ORD) + (col/`GRID_ORD);
+endfunction
+
+function automatic int unsigned f_gp2pos_rowmajor (int unsigned gpi);
+    automatic int unsigned row = gpi / `GRID_LEN;
+    automatic int unsigned col = gpi % `GRID_LEN;
+    return (row*`GRID_LEN) + (((row % 2) == 0) ? col : (`GRID_LEN-1-col));
+endfunction
+
+function automatic int unsigned f_gp2pos_blockcol (int unsigned gpi);
+    automatic int unsigned gpr = gpi / `GRID_LEN, gpc = gpi % `GRID_LEN;
+    automatic int unsigned slice = (gpc % `GRID_ORD);
+    automatic int unsigned row   = (gpc / `GRID_ORD) * `GRID_ORD;
+    automatic int unsigned blkcol;
+    if ( ((gpr%2)==0) == (((gpc/`GRID_ORD)%2)==0) ) begin
+        slice = `GRID_ORD - 1 - slice;
+    end;
+    if ((gpc/`GRID_ORD)%2==0) begin
+        row   += gpr / `GRID_ORD;
+        blkcol = gpr % `GRID_ORD;
+    end
+    else begin
+        row   += (`GRID_LEN-1-gpr) / `GRID_ORD;
+        blkcol = (`GRID_LEN-1-gpr) % `GRID_ORD;
+    end
+    // $display("r%2h,c%2h", row, (blkcol * `GRID_ORD) + slice);
+    return (row*`GRID_LEN) + (blkcol*`GRID_ORD)+slice;
+endfunction
+
 /**
  * a network of tiles that form a sudoku grid.
  */
@@ -22,12 +56,16 @@ module grid
     output success
     // TODO.design an interface to request and serially receive the solution data.
 );
-    // get block number given a row number and column number:
-    function int unsigned blockof (
-        int unsigned row,
-        int unsigned col
-    );
-        return ((row/`GRID_ORD)*`GRID_ORD) + (col/`GRID_ORD);
+
+    function automatic int unsigned f_gp2pos (int unsigned gpi);
+        case (GENPATH)
+            ROW_MAJOR: begin
+                return f_gp2pos_rowmajor(gpi);
+            end
+            BLOCK_COL: begin
+                return f_gp2pos_blockcol(gpi);
+            end
+        endcase
     endfunction
 
     enum logic [4:0] {
@@ -45,11 +83,9 @@ module grid
     // chaining and success signals:
     wire pos_pbak [`GRID_LEN-1:0][`GRID_LEN-1:0];
     wire pos_pfwd [`GRID_LEN-1:0][`GRID_LEN-1:0];
-    wire [`GRID_AREA-1:0] shift_pbak;
-    wire [`GRID_AREA-1:0] shift_pfwd;
     wire [`GRID_AREA-1:0] tvs_pbak;
     wire [`GRID_AREA-1:0] tvs_pfwd;
-    wire [`GRID_AREA-1:0] myturns = {tvs_pbak | tvs_pfwd};
+    wire [`GRID_AREA-1:0] myturns = tvs_pbak | tvs_pfwd;
 
     // [rowbias] signals:
     wire [`GRID_LEN-1:0] biasidx [`GRID_LEN-1:0][`GRID_LEN-1:0];
@@ -85,8 +121,8 @@ module grid
             RESET: state <= ((ready_countdown == 0) & rq_start) ? START : RESET;
             START: state <= WAIT;
             WAIT: begin state <= (
-                tvs_pbak[0] ? DONE_FAILURE
-                : tvs_pfwd[`GRID_AREA-1] ? DONE_SUCCESS
+                pos_pbak[f_gp2pos(0)/`GRID_LEN][f_gp2pos(0)%`GRID_LEN] ? DONE_FAILURE
+                : pos_pfwd[f_gp2pos(`GRID_AREA-1)/`GRID_LEN][f_gp2pos(`GRID_AREA-1)%`GRID_LEN] ? DONE_SUCCESS
                 : WAIT); end
             DONE_SUCCESS: state <= DONE_SUCCESS;
             DONE_FAILURE: state <= DONE_FAILURE;
@@ -153,55 +189,25 @@ module grid
         end // rows
     endgenerate
 
-    // shifted pass signals bus:
-    generate
-        genvar pi;
-        for (pi = 0; pi < `GRID_AREA; pi++) begin: shift_pass_bus
-        // TODO.impl these usages of pos_pbak and pos_pfwd also need to be mapped according to the genpath.
-            assign shift_pbak[pi] = (pi == `GRID_AREA-1) ?  1'b0 : pos_pbak[(pi+1)/`GRID_LEN][(pi+1)%`GRID_LEN];
-            assign shift_pfwd[pi] = (pi == 0) ? (state == START) : pos_pfwd[(pi-1)/`GRID_LEN][(pi-1)%`GRID_LEN];
-        end
-    endgenerate
-
     // traversal path:
     generate
-        case (GENPATH)
-        ROW_MAJOR: begin
-            genvar gpr, gpc;
-            for (gpr = 0; gpr < `GRID_LEN; gpr++) begin: genpath_rowmajor_row
-            for (gpc = 0; gpc < `GRID_LEN; gpc++) begin: genpath_rowmajor_col
-                int col = ((gpr % 2) == 0) ? gpc : (`GRID_LEN-1-gpc);
-                assign tvs_pbak[(gpr*`GRID_LEN)+gpc] = shift_pbak[(gpr*`GRID_LEN)+col];
-                assign tvs_pfwd[(gpr*`GRID_LEN)+gpc] = shift_pfwd[(gpr*`GRID_LEN)+col];
-                // initial $display("i%d, r%2h, c%2h",(gpr*`GRID_LEN)+gpc,gpr,col);
-            end; end;
+        int unsigned gp2pos [`GRID_AREA-1:0];
+        initial begin
+            for (int unsigned gpi = 0; gpi < `GRID_AREA; gpi++) begin: gen_gp2pos
+                gp2pos[gpi] = f_gp2pos(gpi);
+            end
         end
-        BLOCK_COL: begin
-            genvar gpr, gpc;
-            for (gpr = 0; gpr < `GRID_LEN; gpr++) begin: genpath_blockcol_row
-            for (gpc = 0; gpc < `GRID_LEN; gpc++) begin: genpath_blockcol_col
-                int slice = (gpc % `GRID_ORD);
-                int row   = (gpc / `GRID_ORD) * `GRID_ORD;
-                int blkcol;
-                initial begin
-                    if ( ((gpr%2)==0) == (((gpc/`GRID_ORD)%2)==0) ) begin
-                        slice = `GRID_ORD - 1 - slice;
-                    end;
-                    if ((gpc/`GRID_ORD)%2==0) begin
-                        row   += gpr / `GRID_ORD;
-                        blkcol = gpr % `GRID_ORD;
-                    end
-                    else begin
-                        row   += (`GRID_LEN-1-gpr) / `GRID_ORD;
-                        blkcol = (`GRID_LEN-1-gpr) % `GRID_ORD;
-                    end
-                // $display("r%2h,c%2h", row, (blkcol * `GRID_ORD) + slice);
-                end
-                assign tvs_pbak[(gpr*`GRID_LEN)+gpc] = shift_pbak[(row*`GRID_LEN)+((blkcol*`GRID_ORD)+slice)];
-                assign tvs_pfwd[(gpr*`GRID_LEN)+gpc] = shift_pfwd[(row*`GRID_LEN)+((blkcol*`GRID_ORD)+slice)];
-            end; end;
+        int unsigned pos2gp [`GRID_AREA-1:0];
+        initial begin
+            for (int unsigned gpi = 0; gpi < `GRID_AREA; gpi++) begin: gen_pos2gp
+                pos2gp[gp2pos[gpi]] = gpi;
+            end
         end
-        endcase
+        genvar pos;
+        for (pos = 0; pos < `GRID_AREA; pos++) begin: traversal_path
+            assign tvs_pbak[pos] = (pos2gp[pos] == `GRID_AREA-1) ?  1'b0 : pos_pbak[gp2pos[pos2gp[pos]+1]/`GRID_LEN][gp2pos[pos2gp[pos]+1]%`GRID_LEN];
+            assign tvs_pfwd[pos] = (pos2gp[pos] == 0) ? (state == START) : pos_pfwd[gp2pos[pos2gp[pos]-1]/`GRID_LEN][gp2pos[pos2gp[pos]-1]%`GRID_LEN];
+        end
     endgenerate
 
     // generate [OR] modules for [tile.valcannotbe] inputs:

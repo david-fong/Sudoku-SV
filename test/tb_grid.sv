@@ -1,5 +1,5 @@
 `include "../src/grid_dimensions.svh"
-`define MAX_CLOCK_CYCLES 22500
+`define MAX_CLOCK_CYCLES (22500)
 
 /**
  *
