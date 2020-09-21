@@ -21,10 +21,10 @@ module rowbias
 )(
     input  clock,
     input  reset,
-    input  [RAND_WIDTH-1:0] random,
+    input  unsigned [RAND_WIDTH-1:0] random,
     input  update,
-    input  [WIDTH-1:0] rqindex,
-    output reg [WIDTH-1:0] valtotry
+    input  unsigned [WIDTH-1:0] rqindex,
+    output reg unsigned [WIDTH-1:0] valtotry
 );
     enum logic [3:0] {
         RESET           = 4'b1 << 1,
@@ -34,13 +34,13 @@ module rowbias
     } state;
     reg [WIDTH-1:0] shufflepool [WIDTH-1:0];
 
-    int inlzn_countup;
-    wire [31:0] inlzn_countup_next = inlzn_countup + 1;
-    reg [RAND_WIDTH-1:0] random_grabbed;
-    reg [WIDTH-1:0] swap_temp;
+    int  unsigned inlzn_countup;
+    wire unsigned [31:0] inlzn_countup_next = inlzn_countup + 1;
+    reg  unsigned [RAND_WIDTH-1:0] random_grabbed;
+    reg  unsigned [WIDTH-1:0] swap_temp;
     always_ff @(posedge clock) begin: rowbias_state
         if (reset) begin
-            inlzn_countup <= 'x;
+            inlzn_countup <= 0;
             state <= RESET;
         end
         else begin case (state)
@@ -58,13 +58,13 @@ module rowbias
                 if (inlzn_countup != random_grabbed) begin
                     shufflepool[inlzn_countup] <= swap_temp;
                 end
-                shufflepool[random_grabbed] <= {{WIDTH-1{1'b0}},1'b1} << inlzn_countup;
+                shufflepool[random_grabbed] <= {{WIDTH-1{1'b0}},1'b1} <<< inlzn_countup;
                 random_grabbed  <= random % inlzn_countup_next;
                 inlzn_countup   <= inlzn_countup_next;
                 state <= (inlzn_countup_next == WIDTH) ? READY : RESET_SWAP_0;
             end
             READY: begin
-                inlzn_countup  <= 'x;
+                inlzn_countup  <= 0;
                 random_grabbed <= 'x;
                 state <= READY;
             end

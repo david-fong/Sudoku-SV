@@ -2,7 +2,7 @@ onerror {resume}
 quietly WaveActivateNextPane {} 0
 add wave -noupdate -radix binary /tb_grid/clock
 add wave -noupdate -height 15 -group grid -radix binary /tb_grid/reset
-add wave -noupdate -height 15 -group grid -radix binary /tb_grid/start
+add wave -noupdate -height 15 -group grid -radix binary /tb_grid/rq_start
 add wave -noupdate -height 15 -group grid -radix ascii -radixenum numeric /tb_grid/DUT_rowmajor/state
 add wave -noupdate -height 15 -group grid -radix binary /tb_grid/rowmajor_success
 add wave -noupdate -format Event -radix binary /tb_grid/rowmajor_done

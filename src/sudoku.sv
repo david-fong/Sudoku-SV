@@ -17,7 +17,7 @@
  * hex0 displays the cursor's horizontal position
  *
  */
-module sudoku
+module DE1_SoC
 (
     input CLOCK_50,
     input  [3:0] KEY,

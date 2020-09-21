@@ -9,11 +9,11 @@ module lfsr
 )(
     input  clock,
     input  reset,
-    input  [WIDTH-1:0] seed,
+    input  unsigned [WIDTH-1:0] seed,
     input  advance,
-    output reg [WIDTH-1:0] out
+    output reg unsigned [WIDTH-1:0] out
 );
-    wire [WIDTH-1:0] next;
+    wire unsigned [WIDTH-1:0] next;
     generate
         genvar i;
         for (i = 0; i < WIDTH - 1; i++) begin: gen_lfsr_next

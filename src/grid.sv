@@ -51,7 +51,7 @@ module grid
     input  clock,
     input  reset,
     input  rq_start,
-    input  [LFSR_WIDTH-1:0] seed,
+    input  unsigned [LFSR_WIDTH-1:0] seed,
     output done,
     output success
     // TODO.design an interface to request and serially receive the solution data.
@@ -81,25 +81,26 @@ module grid
     assign success = (state == DONE_SUCCESS);
 
     // chaining and success signals:
-    wire pos_pbak [`GRID_LEN-1:0][`GRID_LEN-1:0];
-    wire pos_pfwd [`GRID_LEN-1:0][`GRID_LEN-1:0];
-    wire [`GRID_AREA-1:0] tvs_pbak;
-    wire [`GRID_AREA-1:0] tvs_pfwd;
-    wire [`GRID_AREA-1:0] myturns = tvs_pbak | tvs_pfwd;
+    wire unsigned pos_pbak [`GRID_LEN-1:0][`GRID_LEN-1:0];
+    wire unsigned pos_pfwd [`GRID_LEN-1:0][`GRID_LEN-1:0];
+    wire unsigned [`GRID_AREA-1:0] tvs_pbak;
+    wire unsigned [`GRID_AREA-1:0] tvs_pfwd;
+    wire unsigned [`GRID_AREA-1:0] myturns = tvs_pbak | tvs_pfwd;
 
     // [rowbias] signals:
-    wire [`GRID_LEN-1:0] biasidx [`GRID_LEN-1:0][`GRID_LEN-1:0];
-    wire [`GRID_LEN-1:0][`GRID_LEN-1:0] rq_valtotry;
-    wire [`GRID_LEN-1:0] valtotry [`GRID_LEN-1:0];
+    wire unsigned [`GRID_LEN-1:0] biasidx [`GRID_LEN-1:0][`GRID_LEN-1:0];
+    wire unsigned [`GRID_LEN-1:0][`GRID_LEN-1:0] rq_valtotry;
+    wire unsigned [`GRID_LEN-1:0] valtotry [`GRID_LEN-1:0];
 
     // occupancy signals:
     // [values] is in row-major order.
-    wire [`GRID_LEN-1:0] rowmajorvalues [`GRID_LEN-1:0][`GRID_LEN-1:0];
-    wire [`GRID_LEN-1:0] colmajorvalues [`GRID_LEN-1:0][`GRID_LEN-1:0];
-    wire [`GRID_LEN-1:0] blkmajorvalues [`GRID_LEN-1:0][`GRID_LEN-1:0];
-    wire [`GRID_LEN-1:0] rowalreadyhas  [`GRID_LEN-1:0];
-    wire [`GRID_LEN-1:0] colalreadyhas  [`GRID_LEN-1:0];
-    wire [`GRID_LEN-1:0] blkalreadyhas  [`GRID_LEN-1:0];
+    wire unsigned [`GRID_LEN-1:0] rowmajorvalues_next [`GRID_LEN-1:0][`GRID_LEN-1:0];
+    reg  unsigned [`GRID_LEN-1:0] rowmajorvalues [`GRID_LEN-1:0][`GRID_LEN-1:0];
+    wire unsigned [`GRID_LEN-1:0] colmajorvalues [`GRID_LEN-1:0][`GRID_LEN-1:0];
+    wire unsigned [`GRID_LEN-1:0] blkmajorvalues [`GRID_LEN-1:0][`GRID_LEN-1:0];
+    wire unsigned [`GRID_LEN-1:0] rowalreadyhas  [`GRID_LEN-1:0];
+    wire unsigned [`GRID_LEN-1:0] colalreadyhas  [`GRID_LEN-1:0];
+    wire unsigned [`GRID_LEN-1:0] blkalreadyhas  [`GRID_LEN-1:0];
 
 
     // reset procedure:
@@ -141,13 +142,13 @@ module grid
             .out(random),
             .*
         );
-        reg [`GRID_LEN-1:0] reset_chain;
+        reg unsigned [`GRID_LEN-1:0] reset_chain;
         always_ff @(posedge clock) begin
             reset_chain <= {reset_chain[`GRID_LEN-2:0],reset};
         end
         genvar rbr;
         for (rbr = 0; rbr < `GRID_LEN; rbr++) begin: gen_rowbias // rows
-            wor [`GRID_LEN-1:0] rqindex;
+            wor unsigned [`GRID_LEN-1:0] rqindex;
             genvar rbc;
             for (rbc = 0; rbc < `GRID_LEN; rbc++) begin: gen_wor_rqindex
                 assign rqindex = biasidx[rbr][rbc];
@@ -183,22 +184,23 @@ module grid
                     colalreadyhas[tlc] |
                     blkalreadyhas[blockof(tlr,tlc)]
                 }),
-                .value(rowmajorvalues[tlr][tlc])
+                .value(rowmajorvalues_next[tlr][tlc])
             );
         end // cols
         end // rows
     endgenerate
+    always_ff @(posedge clock) begin
+        rowmajorvalues <= rowmajorvalues_next;
+    end
 
     // traversal path:
     generate
         int unsigned gp2pos [`GRID_AREA-1:0];
+        int unsigned pos2gp [`GRID_AREA-1:0];
         initial begin
             for (int unsigned gpi = 0; gpi < `GRID_AREA; gpi++) begin: gen_gp2pos
                 gp2pos[gpi] = f_gp2pos(gpi);
             end
-        end
-        int unsigned pos2gp [`GRID_AREA-1:0];
-        initial begin
             for (int unsigned gpi = 0; gpi < `GRID_AREA; gpi++) begin: gen_pos2gp
                 pos2gp[gp2pos[gpi]] = gpi;
             end
@@ -214,9 +216,9 @@ module grid
     generate
         genvar vcbi;
         for (vcbi = 0; vcbi < `GRID_LEN; vcbi++) begin: gen_alreadyhas
-            wor [`GRID_LEN-1:0] _rowalreadyhas;
-            wor [`GRID_LEN-1:0] _colalreadyhas;
-            wor [`GRID_LEN-1:0] _blkalreadyhas;
+            wor unsigned [`GRID_LEN-1:0] _rowalreadyhas;
+            wor unsigned [`GRID_LEN-1:0] _colalreadyhas;
+            wor unsigned [`GRID_LEN-1:0] _blkalreadyhas;
             genvar vcbj;
             for (vcbj = 0; vcbj < `GRID_LEN; vcbj++) begin: gen_wor_alreadyhas
                 assign _rowalreadyhas = rowmajorvalues[vcbi][vcbj];
@@ -230,7 +232,6 @@ module grid
     endgenerate
 
     // loop to map [rowmajorvalues] to [colmajorvalues]:
-    // r and c are in terms of row-major-order. nothing convoluted.
     generate
         genvar r;
         genvar c;
@@ -262,7 +263,7 @@ module grid
     endgenerate
 
     // A task to print the grid values to the transcript:
-    task print();
+    function void print();
         $write("");
         for (int r = 0; r < `GRID_LEN; r++) begin
             if (r % `GRID_ORD == 0) begin
@@ -277,10 +278,10 @@ module grid
             $write("| \n");
         end
         _print_horizontal_line();
-    endtask
+    endfunction
 
     // Helper function:
-    task _print_horizontal_line();
+    function void _print_horizontal_line();
         for (int c = 0; c < `GRID_LEN; c++) begin
             if (c % `GRID_ORD == 0) begin
                 $write("+-");
@@ -288,5 +289,5 @@ module grid
             $write("--");
         end
         $write("+\n");
-    endtask
+    endfunction
 endmodule : grid
