@@ -45,8 +45,8 @@ endfunction
 module grid
 #(
     parameter genpath_t            GENPATH    = BLOCK_COL,
-    parameter int                  LFSR_WIDTH = 8,
-    parameter bit [LFSR_WIDTH-1:0] LFSR_TAPS  = 8'b10111000
+    parameter int                  LFSR_WIDTH = 4,
+    parameter bit [LFSR_WIDTH-1:0] LFSR_TAPS  = 4'b1100
 )(
     input  clock,
     input  reset,
@@ -75,7 +75,7 @@ module grid
         DONE_SUCCESS = 5'b1 << 3, //
         DONE_FAILURE = 5'b1 << 4  //
     } state;
-    int unsigned ready_countdown;
+    wire ready;
 
     assign done    = (state == DONE_SUCCESS) | (state == DONE_FAILURE);
     assign success = (state == DONE_SUCCESS);
@@ -88,9 +88,9 @@ module grid
     wire unsigned [`GRID_AREA-1:0] myturns = tvs_pbak | tvs_pfwd;
 
     // [rowbias] signals:
-    wire unsigned [`GRID_LEN-1:0] biasidx [`GRID_LEN-1:0][`GRID_LEN-1:0];
-    wire unsigned [`GRID_LEN-1:0][`GRID_LEN-1:0] rq_valtotry;
-    wire unsigned [`GRID_LEN-1:0] valtotry [`GRID_LEN-1:0];
+    wire unsigned [`GRID_LEN-1:0] biasidx     [`GRID_LEN-1:0][`GRID_LEN-1:0];
+    wor  unsigned [`GRID_LEN-1:0] biasidx_wor [`GRID_LEN-1:0];
+    wire unsigned [`GRID_LEN-1:0] valtotry    [`GRID_LEN-1:0];
 
     // occupancy signals:
     // [values] is in row-major order.
@@ -103,23 +103,13 @@ module grid
     wire unsigned [`GRID_LEN-1:0] blkalreadyhas  [`GRID_LEN-1:0];
 
 
-    // reset procedure:
-    always_ff @(posedge clock) begin: grid_done_reset
-        if (reset) begin
-            ready_countdown <= `GRID_LEN * 3; // See `reset_chain` for rowbias modules.
-        end
-        else if (ready_countdown > 0) begin
-            ready_countdown--;
-        end
-    end
-
     // STATE MACHINE:
     always_ff @(posedge clock) begin: grid_state
         if (reset) begin;
             state <= RESET;
         end
         else begin case (state)
-            RESET: state <= ((ready_countdown == 0) & rq_start) ? START : RESET;
+            RESET: state <= (rq_start & ready) ? START : RESET;
             START: state <= WAIT;
             WAIT: begin state <= (
                 pos_pbak[f_gp2pos(0)/`GRID_LEN][f_gp2pos(0)%`GRID_LEN] ? DONE_FAILURE
@@ -132,44 +122,29 @@ module grid
 
 
     // generate [rowbias] modules:
-    generate
-        wire [LFSR_WIDTH-1:0] random;
-        lfsr #(
-            .WIDTH(LFSR_WIDTH),
-            .TAPS(LFSR_TAPS)
-        ) LFSRx(
-            .advance(state == RESET),
-            .out(random),
-            .*
-        );
-        reg unsigned [`GRID_LEN-1:0] reset_chain;
-        always_ff @(posedge clock) begin
-            reset_chain <= {reset_chain[`GRID_LEN-2:0],reset};
-        end
-        genvar rbr;
-        for (rbr = 0; rbr < `GRID_LEN; rbr++) begin: gen_rowbias // rows
-            wor unsigned [`GRID_LEN-1:0] rqindex;
-            genvar rbc;
-            for (rbc = 0; rbc < `GRID_LEN; rbc++) begin: gen_wor_rqindex
-                assign rqindex = biasidx[rbr][rbc];
-            end
-            rowbias #(.RAND_WIDTH(LFSR_WIDTH)) ROWBIASx(
-                .clock,
-                .reset(reset_chain[rbr]),
-                .random,
-                .update(|rq_valtotry[rbr]),
-                .rqindex(rqindex),
-                .valtotry(valtotry[rbr])
-            );
-        end // rows
-    endgenerate
+    rowbias #(
+        .ORD(`GRID_ORD),
+        .LFSR_WIDTH(LFSR_WIDTH),
+        .LFSR_TAPS(LFSR_TAPS)
+    ) ROWBIASx(
+        .clock,
+        .reset,
+        .seed,
+        .ready,
+        .index(biasidx_wor),
+        .valtotry
+    );
+    // genvar rbr;
+    // for (rbr = 0; rbr < `GRID_LEN; rbr++) begin: gen_rowbias // rows
+    // end // rows
 
     // generate [tile] modules:
     generate
         genvar tlr, tlc;
-        for (tlr = 0; tlr < `GRID_LEN; tlr++) begin: gen_tile_row // rows
-        for (tlc = 0; tlc < `GRID_LEN; tlc++) begin: gen_tile_col // cols
+        for (tlr = 0; tlr < `GRID_LEN; tlr++) begin: r // rows
+        for (tlc = 0; tlc < `GRID_LEN; tlc++) begin: c // cols
             int unsigned tli = (tlr * `GRID_LEN) + tlc;
+            assign biasidx_wor[tlr] = biasidx[tlr][tlc];
             tile /*#()*/ TILEx(
                 .clock,
                 .reset,
@@ -177,7 +152,6 @@ module grid
                 .passbak(pos_pbak[tlr][tlc]),
                 .passfwd(pos_pfwd[tlr][tlc]),
                 .biasidx( biasidx[tlr][tlc]),
-                .rq_valtotry(rq_valtotry[tlr][tlc]),
                 .valtotry(valtotry[tlr]),
                 .valcannotbe({
                     rowalreadyhas[tlr] |
@@ -233,11 +207,10 @@ module grid
 
     // loop to map [rowmajorvalues] to [colmajorvalues]:
     generate
-        genvar r;
-        genvar c;
-        for (r = 0; r < `GRID_LEN; r++) begin: gen_colmajorvalues_row // rows
-        for (c = 0; c < `GRID_LEN; c++) begin: gen_colmajorvalues_col // cols
-            assign colmajorvalues[c][r] = rowmajorvalues[r][c];
+        genvar cmr, cmc;
+        for (cmr = 0; cmr < `GRID_LEN; cmr++) begin: gen_colmajorvalues_row // rows
+        for (cmc = 0; cmc < `GRID_LEN; cmc++) begin: gen_colmajorvalues_col // cols
+            assign colmajorvalues[cmc][cmr] = rowmajorvalues[cmr][cmc];
         end // cols
         end // rows
     endgenerate

@@ -11,11 +11,10 @@ module tile
     output  passbak, // nothing worked. backtrack and try something different.
     output  passfwd, // found something that worked. forge ahead.
 
-    output                  rq_valtotry,    // bool. make valtotry update using biasidx.
     output unsigned [`GRID_LEN-1:0] biasidx,        // 1hot.
     input  unsigned [`GRID_LEN-1:0] valtotry,       // 1hot. response from bias module.
     input  unsigned [`GRID_LEN-1:0] valcannotbe,    // 1hot. mask of external values to avoid.
-    output reg [`GRID_LEN-1:0] value        // 1hot. this tile's current value.
+    output reg      [`GRID_LEN-1:0] value           // 1hot. this tile's current value.
 );
     enum logic [6:0] {
         RESET   = 7'b1 << 0, // reset internal registers.
@@ -31,7 +30,6 @@ module tile
     // moore-style outputs:
     assign passbak      = (state == PASSBAK);
     assign passfwd      = (state == PASSFWD);
-    assign rq_valtotry  = (state == RQROWBS);
     assign biasidx      = (state == RQROWBS)
         ? index[0+:`GRID_LEN]
         : {`GRID_LEN{1'b0}}; // cannot use `x` since these get OR'ed together for tiles in the same row..

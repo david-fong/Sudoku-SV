@@ -12,87 +12,100 @@
  *     bit.
  *
  * outputs should be treated as undefined if inputs attempt to index
-       using a non-1hot value.
+ *     using a non-1hot value.
  */
 module rowbias
 #(
-    parameter WIDTH=`GRID_LEN,
-    parameter RAND_WIDTH
+    parameter  int unsigned ORD,
+    parameter  int unsigned LFSR_WIDTH,
+    parameter  bit unsigned [LFSR_WIDTH-1:0] LFSR_TAPS
 )(
     input  clock,
     input  reset,
-    input  unsigned [RAND_WIDTH-1:0] random,
-    input  update,
-    input  unsigned [WIDTH-1:0] rqindex,
-    output reg unsigned [WIDTH-1:0] valtotry
+    input  [LFSR_WIDTH-1:0] seed,
+    output ready,
+    input      unsigned [ORD*ORD-1:0] index    [ORD*ORD-1:0],
+    output reg unsigned [ORD*ORD-1:0] valtotry [ORD*ORD-1:0]
 );
-    enum logic [3:0] {
-        RESET           = 4'b1 << 1,
-        RESET_SWAP_0    = 4'b1 << 2,
-        RESET_SWAP_1    = 4'b1 << 3,
-        READY           = 4'b1 << 4
+    localparam int unsigned LEN  = ORD * ORD;
+    localparam int unsigned AREA = LEN * LEN;
+    enum logic [4:0] {
+        RESET           = 5'b1 << 1,
+        SETUP_SWAP_0    = 5'b1 << 2,
+        SETUP_SWAP_1    = 5'b1 << 3,
+        SETUP_NEXT_ROW  = 5'b1 << 4,
+        READY           = 5'b1 << 5
     } state;
-    reg [WIDTH-1:0] shufflepool [WIDTH-1:0];
+    assign ready = (state == READY);
 
-    int  unsigned inlzn_countup;
-    wire unsigned [31:0] inlzn_countup_next = inlzn_countup + 1;
-    reg  unsigned [RAND_WIDTH-1:0] random_grabbed;
-    reg  unsigned [WIDTH-1:0] swap_temp;
+    reg [LEN-1:0] shufflepool [LEN-1:0][LEN-1:0];
+    wire [LFSR_WIDTH-1:0] random;
+    lfsr #(
+        .WIDTH(LFSR_WIDTH),
+        .TAPS(LFSR_TAPS)
+    ) LFSRx(
+        .advance(state == SETUP_SWAP_0 || state == SETUP_SWAP_1),
+        .out(random),
+        .*
+    );
+
+    reg  unsigned [8:0] inlzn_countup;
+    wire unsigned [8:0] inlzn_countup_next = inlzn_countup + 1'b1;
+    reg  unsigned [8:0] inlzn_row;
+    reg  unsigned [LFSR_WIDTH-1:0] random_grabbed;
+    reg  unsigned [LEN-1:0] swap_temp;
     always_ff @(posedge clock) begin: rowbias_state
         if (reset) begin
-            inlzn_countup <= 0;
             state <= RESET;
         end
         else begin case (state)
             RESET: begin
-                random_grabbed  <= 0;
                 inlzn_countup   <= 0;
-                state           <= RESET_SWAP_0;
+                inlzn_row       <= 0;
+                random_grabbed  <= 0;
+                state           <= SETUP_SWAP_0;
             end
-            RESET_SWAP_0: begin
-                swap_temp <= (inlzn_countup != random_grabbed) ? shufflepool[random_grabbed] : 'x;
-                state <= RESET_SWAP_1;
+            SETUP_SWAP_0: begin
+                swap_temp <= (inlzn_countup != random_grabbed) ? shufflepool[inlzn_row][random_grabbed] : 'x;
+                state <= SETUP_SWAP_1;
             end
-            RESET_SWAP_1: begin
-                // inlzn_countup <= inlzn_countup;
+            SETUP_SWAP_1: begin
                 if (inlzn_countup != random_grabbed) begin
-                    shufflepool[inlzn_countup] <= swap_temp;
+                    shufflepool[inlzn_row][inlzn_countup] <= swap_temp;
                 end
-                shufflepool[random_grabbed] <= {{WIDTH-1{1'b0}},1'b1} <<< inlzn_countup;
-                random_grabbed  <= random % inlzn_countup_next;
+                shufflepool[inlzn_row][random_grabbed] <= {{LEN-1{1'b0}},1'b1} <<< inlzn_countup;
                 inlzn_countup   <= inlzn_countup_next;
-                state <= (inlzn_countup_next == WIDTH) ? READY : RESET_SWAP_0;
+                random_grabbed  <= random % inlzn_countup_next;
+                state <= (inlzn_countup_next == LEN) ? SETUP_NEXT_ROW : SETUP_SWAP_0;
+            end
+            SETUP_NEXT_ROW: begin
+                inlzn_countup   <= 0;
+                inlzn_row       <= inlzn_row + 1'b1;
+                random_grabbed  <= 0;
+                state <= (inlzn_row == LEN - 1) ? READY : SETUP_SWAP_0;
             end
             READY: begin
-                inlzn_countup  <= 0;
-                random_grabbed <= 'x;
+                inlzn_countup   <= 0;
+                random_grabbed  <= 'x;
                 state <= READY;
             end
         endcase end
     end
 
-    always_ff @(posedge clock) begin
-        if (update) begin
-            valtotry = 'x;
-            for (int i = 0; i < WIDTH; i++) begin
-                if (rqindex[i]) begin
-                    valtotry = shufflepool[i];
-                    break;
+    generate
+        genvar rbr;
+        for (rbr = 0; rbr < LEN; rbr++) begin: arbiter
+            always_ff @(posedge clock) begin
+                if (|(index[rbr])) begin
+                    valtotry[rbr] = 'x;
+                    for (int i = 0; i < LEN; i++) begin
+                        if (index[rbr][i]) begin
+                            valtotry[rbr] = shufflepool[rbr][i];
+                            break;
+                        end
+                    end
                 end
             end
         end
-    end
-endmodule
-
-
-// arbiter. filter for least significant on-bit.
-// currently not used since spec for rowbias does not permit non-1hot indexing.
-module arbiter #(parameter WIDTH)
-(
-    input  [WIDTH-1:0] in,
-    output [WIDTH-1:0] out
-);
-    wire   [WIDTH-1:0] scratch;
-    assign scratch = in | {scratch[WIDTH-2:0],1'b0};
-    assign out = in & ~scratch;
+    endgenerate
 endmodule

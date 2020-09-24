@@ -1,6 +1,18 @@
 
 /**
- * `seed` must not be zero when resetting.
+ `seed` must not be zero when resetting.
+ https://en.wikipedia.org/wiki/Linear-feedback_shift_register#Some_polynomials_for_maximal_LFSRs
+  2'b11
+  3'b110
+  4'b1100
+  5'b10100
+  6'b110000
+  7'b1100000
+  8'b10111000
+  9'b100010000
+ 10'b1001000000
+ 11'b10100000000
+ 12'b111000001000
  */
 module lfsr
 #(

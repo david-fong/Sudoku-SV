@@ -1,5 +1,6 @@
 `include "../src/grid_dimensions.svh"
-`define MAX_CLOCK_CYCLES (22500)
+`include "../src/grid.sv"
+`define MAX_CLOCK_CYCLES (6100)
 
 /**
  *
@@ -7,12 +8,7 @@
 module tb_grid;
     reg clock;
     reg reset;
-    reg [7:0] seed = 8'b1;
-    reg rq_start;
-    wire rowmajor_done, rowmajor_success;
-    wire blockcol_done, blockcol_success;
-    grid #(.GENPATH(0)) DUT_rowmajor(.done(rowmajor_done), .success(rowmajor_success), .*);
-    grid #(.GENPATH(1)) DUT_blockcol(.done(blockcol_done), .success(blockcol_success), .*);
+    reg [3:0] seed = 1;
 
     // clock process:
     initial begin: tb_clock
@@ -27,27 +23,30 @@ module tb_grid;
     end
 
     // main process:
-    initial begin: main
-        rq_start = 0;
-        reset = 0;
-        #1;
-        reset = 1;
-        #2;
-        reset = 0;
-        #2;
-        rq_start = 1;
-        #60;
-        rq_start = 0;
+    genvar genpath;
+    generate
+        for (genpath = 0; genpath < 2; genpath++) begin: genpaths
+            genpath_t gp = genpath_t'(genpath);
+            reg rq_start;
+            wire done, success;
+            grid #(.GENPATH(genpath)) DUTx(.*);
+            initial begin: main
+                rq_start = 0;
+                reset = 0;
+                #1;
+                reset = 1;
+                #2;
+                reset = 0;
+                #2;
+                rq_start = 1;
+                #350;
+                rq_start = 0;
 
-        @(posedge rowmajor_done);
-        $display("\n=========================");
-        $display(  "        ROW_MAJOR        ");
-        DUT_rowmajor.print();
-
-        @(posedge blockcol_done);
-        $display("\n=========================");
-        $display(  "        BLOCK_COL        ");
-        DUT_blockcol.print();
-        $stop;
-    end
+                @(posedge done);
+                $display("\n=========================");
+                $write("        %s        \n", gp.name);
+                DUTx.print();
+            end
+        end
+    endgenerate
 endmodule
